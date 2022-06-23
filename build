@@ -1,0 +1,9 @@
+#!/usr/bin/fish
+
+dotnet build
+
+cp bin/Debug/netstandard2.1/troublemaker.dll /home/aviinl/Docker/docker-steamcmd-server/vrising/BepInEx/WetstonePlugins/
+
+tmux send-keys -t 0.2 UP ENTER
+sleep 3
+tmux send-keys -t 0.0 UP ENTER

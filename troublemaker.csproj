@@ -1,0 +1,80 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+	<Nullable>enable</Nullable>
+
+    <AssemblyName>troublemaker</AssemblyName>
+    <Description>My first plugin</Description>
+    <Version>1.0.0</Version>
+
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+
+    
+    <UnhollowedDllPath>/home/aviinl/Docker/docker-steamcmd-server/vrising/BepInEx/unhollowed</UnhollowedDllPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.IL2CPP" Version="6.0.0-*" IncludeAssets="compile" />
+    <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
+    <PackageReference Include="Wetstone" Version="1.1.0" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Reference Include="com.rlabrecque.steamworks.net">
+	    <HintPath>$(UnhollowedDllPath)/com.rlabrecque.steamworks.net.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Il2Cppmscorlib">
+	    <HintPath>$(UnhollowedDllPath)/Il2Cppmscorlib.dll</HintPath>
+	  </Reference>
+	  <Reference Include="ProjectM">
+	    <HintPath>$(UnhollowedDllPath)/ProjectM.dll</HintPath>
+	  </Reference>
+	  <Reference Include="ProjectM.ScriptableSystems">
+	    <HintPath>$(UnhollowedDllPath)/ProjectM.ScriptableSystems.dll</HintPath>
+	  </Reference>
+	  <Reference Include="ProjectM.Shared">
+	    <HintPath>$(UnhollowedDllPath)/ProjectM.Shared.dll</HintPath>
+	  </Reference>
+	  <Reference Include="ProjectM.CodeGeneration">
+	    <HintPath>$(UnhollowedDllPath)/ProjectM.CodeGeneration.dll</HintPath>
+	  </Reference>
+	  <Reference Include="ProjectM.Gameplay.Systems">
+	    <HintPath>$(UnhollowedDllPath)/ProjectM.Gameplay.Systems.dll</HintPath>
+	  </Reference>
+	  <Reference Include="ProjectM.Misc.Systems">
+	    <HintPath>$(UnhollowedDllPath)/ProjectM.Misc.Systems.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Stunlock.Core">
+	    <HintPath>$(UnhollowedDllPath)/Stunlock.Core.dll</HintPath>
+	  </Reference>
+	  <Reference Include="RCONServerLib">
+	    <HintPath>$(UnhollowedDllPath)/RCONServerLib.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Unity.Entities">
+	    <HintPath>$(UnhollowedDllPath)/Unity.Entities.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Unity.Collections">
+	    <HintPath>$(UnhollowedDllPath)/Unity.Collections.dll</HintPath>
+	  </Reference>
+	  <Reference Include="UnityEngine">
+	    <HintPath>$(UnhollowedDllPath)/UnityEngine.dll</HintPath>
+	  </Reference>
+	  <Reference Include="UnityEngine.CoreModule">
+	    <HintPath>$(UnhollowedDllPath)/UnityEngine.CoreModule.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Unity.Mathematics">
+        <HintPath>$(UnhollowedDllPath)/Unity.Mathematics.dll</HintPath>
+      </Reference>
+      <Reference Include="Unity.Mathematics.Extensions">
+        <HintPath>$(UnhollowedDllPath)/Unity.Mathematics.Extensions.dll</HintPath>
+      </Reference>
+      <Reference Include="Unity.Mathematics.Extensions.Hybrid">
+        <HintPath>$(UnhollowedDllPath)/Unity.Mathematics.Extensions.Hybrid.dll</HintPath>
+      </Reference>
+      <Reference Include="Unity.Transforms">
+        <HintPath>$(UnhollowedDllPath)/Unity.Transforms.dll</HintPath>
+      </Reference>
+  </ItemGroup>
+</Project>
