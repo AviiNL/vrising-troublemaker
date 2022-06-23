@@ -25,7 +25,6 @@ public class Troublemaker : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        new Harmony(PluginInfo.PLUGIN_GUID).PatchAll();
     }
 
     private void Update()
