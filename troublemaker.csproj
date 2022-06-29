@@ -46,6 +46,12 @@
 	  <Reference Include="ProjectM.Misc.Systems">
 	    <HintPath>$(UnhollowedDllPath)/ProjectM.Misc.Systems.dll</HintPath>
 	  </Reference>
+	  <Reference Include="ProjectM.Pathfinding">
+	    <HintPath>$(UnhollowedDllPath)/ProjectM.Pathfinding.dll</HintPath>
+	  </Reference>
+	  <Reference Include="com.stunlock.network">
+	    <HintPath>$(UnhollowedDllPath)/com.stunlock.network.dll</HintPath>
+	  </Reference>
 	  <Reference Include="Stunlock.Core">
 	    <HintPath>$(UnhollowedDllPath)/Stunlock.Core.dll</HintPath>
 	  </Reference>

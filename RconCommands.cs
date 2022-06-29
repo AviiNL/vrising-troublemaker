@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using ProjectM;
 using ProjectM.Gameplay.Systems;
 using ProjectM.Network;
+using ProjectM.Pathfinding;
 using troublemaker.Attributes;
 using UnhollowerRuntimeLib;
 using Unity.Collections;
@@ -24,14 +25,10 @@ public class RconCommands
     [RconCommand("tm_message", Usage = "tm_message <steamid> <message>", Description = "Message Command")]
     public string MessageCommand(ulong steamId, string[] message)
     {
+        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
+        var users = userQuery.ToEntityArray(Allocator.Temp);
 
-        var query = new[] {
-            ComponentType.ReadOnly(Il2CppType.Of<User>()),
-        };
-
-        var system = VWorld.Server.EntityManager.CreateEntityQuery(query);
-
-        foreach (var entity in system.ToEntityArray(Allocator.Temp))
+        foreach (var entity in users)
         {
             var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
 
@@ -81,28 +78,28 @@ public class RconCommands
     [RconCommand("tm_health", Usage = "tm_healh <steamid> <health%>", Description = "Health Command")]
     public string HealthCommand(ulong steamId, int health)
     {
+        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
+        var users = userQuery.ToEntityArray(Allocator.Temp);
 
-        var query = new[] {
-            ComponentType.ReadOnly(Il2CppType.Of<User>()),
-        };
-
-        var system = VWorld.Server.EntityManager.CreateEntityQuery(query);
-
-        foreach (var entity in system.ToEntityArray(Allocator.Temp))
+        foreach (var entity in users)
         {
             var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
+            var fromCharacter = VWorld.Server.EntityManager.GetComponentData<FromCharacter>(entity);
 
             if (user.PlatformId != steamId || !user.IsConnected) continue;
 
             var character = user.LocalCharacter;
             var ent = character._Entity;
 
-            ent.WithComponentData((ref Health hp) =>
-            {
-                float restore_hp = (hp.MaxHealth / 100) * health;
+            var hp = VWorld.Server.EntityManager.GetComponentData<Health>(ent);
+            float restore_hp = ((hp.MaxHealth / 100) * health) - hp.Value;
 
-                hp.Value = restore_hp;
-            });
+            var healthEvent = new ChangeHealthDebugEvent()
+            {
+                Amount = (int)restore_hp
+            };
+
+            VWorld.Server.GetExistingSystem<DebugEventsSystem>().ChangeHealthEvent(user.Index, ref healthEvent);
 
             return $"{{\"player\":\"{user.CharacterName}\",\"health\":{health}}}";
         }
@@ -110,22 +107,62 @@ public class RconCommands
         return "{\"error\":\"User not found\"}";
     }
 
-    [RconCommand("tm_blood", Usage = "tm_blood <steamid> <BloodType> <Quality%> <Quantity%>", Description = "Message Command")]
-    public string BloodCommand(ulong steamId, string BloodType, float quality, float quantity)
+    // Disable is borked, enable will stack
+    [RconCommand("tm_sunresistance", Usage = "tm_sunresistance <steamid>", Description = "Sun Resistance Command")]
+    public string SunResistanceCommand(ulong steamId)
     {
-        var query = new[] {
-            ComponentType.ReadOnly(Il2CppType.Of<User>()),
-        };
+        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
+        var users = userQuery.ToEntityArray(Allocator.Temp);
 
-        var system = VWorld.Server.EntityManager.CreateEntityQuery(query);
+        foreach (var entity in users)
+        {
+            var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
+            
+            if (user.PlatformId != steamId || !user.IsConnected) continue;
 
-        foreach (var entity in system.ToEntityArray(Allocator.Temp))
+            if (BuffUtility.HasBuff(VWorld.Server.EntityManager, user.LocalCharacter._Entity, new PrefabGUID(475045773)))
+            {
+                BuffUtility.TryGetBuff(VWorld.Server.EntityManager, user.LocalCharacter._Entity, new PrefabGUID(475045773), out var BuffEntity_);
+                
+                VWorld.Server.EntityManager.AddComponent<DestroyTag>(BuffEntity_);
+                
+                return $"{{\"player\":\"{user.CharacterName}\",\"sunresistance\":false}}";
+            } else {
+
+                var fromCharacter = new FromCharacter()
+                {
+                    User = entity,
+                    Character = user.LocalCharacter._Entity
+                };
+                
+                var buffEvent = new ApplyBuffDebugEvent()
+                {
+                    BuffPrefabGUID = new PrefabGUID(475045773),
+                };
+                
+                VWorld.Server.GetExistingSystem<DebugEventsSystem>().ApplyBuff(fromCharacter, buffEvent);
+
+                return $"{{\"player\":\"{user.CharacterName}\",\"sunresistance\":true}}";
+            }
+
+        }
+
+        return "{\"error\":\"User not found\"}";
+    }
+
+    [RconCommand("tm_blood", Usage = "tm_blood <steamid> <BloodType> <Quality%> <Quantity%>", Description = "Message Command")]
+    public string BloodCommand(ulong steamId, string BloodType, float quality, int quantity)
+    {
+        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
+        var users = userQuery.ToEntityArray(Allocator.Temp);
+
+        foreach (var entity in users)
         {
             var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
 
             if (user.PlatformId != steamId || !user.IsConnected) continue;
 
-            var character = user.LocalCharacter;
+            /*var character = user.LocalCharacter;
             var ent = character._Entity;
 
             ent.WithComponentData((ref Blood blood) =>
@@ -137,6 +174,20 @@ public class RconCommands
                     blood.BloodType = new PrefabGUID((int)bloodType);
                 }
             });
+            */
+
+            if (!System.Enum.TryParse(BloodType, true, out BloodTypes bloodType))
+            {
+                return "{\"error\":\"BloodType not found\"}";
+            }
+
+            var bloodEvent = new ChangeBloodDebugEvent() {
+                Amount = quantity,
+                Quality = quality,
+                Source = new PrefabGUID((int)bloodType),
+            };
+
+            VWorld.Server.GetExistingSystem<DebugEventsSystem>().ChangeBloodEvent(user.Index, ref bloodEvent);
 
             return $"{{\"player\":\"{user.CharacterName}\",\"bloodtype\":\"{BloodType}\",\"quality\":{quality},\"quantity\":{quantity}}}";
         }
@@ -147,13 +198,10 @@ public class RconCommands
     [RconCommand("tm_give", Usage = "tm_give <steamid> <item> <quantity>", Description = "Add item(s) to players inventory")]
     public string GiveCommand(ulong steamId, string item, int quantity) // TODO: Check if inventory is full, if so, drop item on ground
     {
-        var query = new[] {
-            ComponentType.ReadOnly(Il2CppType.Of<User>()),
-        };
+        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
+        var users = userQuery.ToEntityArray(Allocator.Temp);
 
-        var system = VWorld.Server.EntityManager.CreateEntityQuery(query);
-
-        foreach (var entity in system.ToEntityArray(Allocator.Temp))
+        foreach (var entity in users)
         {
             var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
 
@@ -206,38 +254,49 @@ public class RconCommands
     [RconCommand("tm_teleport", Usage = "tm_teleport <steamid> <x> <z>", Description = "Teleport player")]
     public string TeleportCommand(ulong steamId, float x, float z)
     {
-        var query = new[] {
-            ComponentType.ReadOnly(Il2CppType.Of<User>()),
-        };
+        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
+        var users = userQuery.ToEntityArray(Allocator.Temp);
 
-        var system = VWorld.Server.EntityManager.CreateEntityQuery(query);
+        var pathfindingSystem = VWorld.Server.GetExistingSystem<PathfindingSystem>();
 
-        foreach (var entity in system.ToEntityArray(Allocator.Temp))
+        foreach (var entity in users)
         {
             var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
+            // var mapCollision = VWorld.Server.EntityManager.GetComponentData<MapCollision>(entity);
+            // var canFly = VWorld.Server.EntityManager.GetComponentData<CanFly>(entity);
 
             if (user.PlatformId != steamId || !user.IsConnected) continue;
 
             var ent = user.LocalCharacter._Entity;
 
-            var _entity = VWorld.Server.EntityManager.CreateEntity(
-                ComponentType.ReadWrite<FromCharacter>(),
-                ComponentType.ReadWrite<PlayerTeleportDebugEvent>()
-            );
-
-            VWorld.Server.EntityManager.SetComponentData<FromCharacter>(_entity, new FromCharacter()
-            {
-                Character = ent,
-                User = entity
-            });
+            // var _entity = VWorld.Server.EntityManager.CreateEntity(
+            //     ComponentType.ReadWrite<FromCharacter>(),
+            //     ComponentType.ReadWrite<PlayerTeleportDebugEvent>()
+            // );
 
             var f2pos = new float2(x, z);
+            var i2pos = new int2((int)x, (int)z);
 
-            VWorld.Server.EntityManager.SetComponentData<PlayerTeleportDebugEvent>(_entity, new()
+            // canFly.IsFlying.Value = true;
+            
+
+
+            VWorld.Server.EntityManager.SetComponentData<Translation>(ent, new Translation()
             {
-                Position = f2pos,
-                Target = PlayerTeleportDebugEvent.TeleportTarget.Self
+                Value = new float3(x, 500, z)
             });
+
+            // VWorld.Server.EntityManager.SetComponentData<FromCharacter>(_entity, new FromCharacter()
+            // {
+            //     Character = ent,
+            //     User = entity
+            // });
+
+            // VWorld.Server.EntityManager.SetComponentData<PlayerTeleportDebugEvent>(_entity, new()
+            // {
+            //     Position = f2pos,
+            //     Target = PlayerTeleportDebugEvent.TeleportTarget.Self
+            // });
 
             return $"{{\"player\":\"{user.CharacterName}\",\"x\":{f2pos.x},\"z\":{f2pos.y}}}";
         }
@@ -248,13 +307,10 @@ public class RconCommands
     [RconCommand("tm_get_player_pos", Usage = "tm_get_player_pos <steamid>", Description = "Get player position")]
     public string GetPlayerPosCommand(ulong steamId)
     {
-        var query = new[] {
-            ComponentType.ReadOnly(Il2CppType.Of<User>()),
-        };
+        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
+        var users = userQuery.ToEntityArray(Allocator.Temp);
 
-        var system = VWorld.Server.EntityManager.CreateEntityQuery(query);
-
-        foreach (var entity in system.ToEntityArray(Allocator.Temp))
+        foreach (var entity in users)
         {
             var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
 
@@ -377,6 +433,11 @@ public class RconCommands
         var day = string.Format("{0:00}", now.Day);
         var hour = string.Format("{0:00}", now.Hour);
         var minute = string.Format("{0:00}", now.Minute);
+
+        var isDay = dnc.TimeOfDay == dnc.TimeOfDay ? "day" : "night";
+
+        var rawr = $"{hour}:{minute} - {isDay}";
+
 
         var dayStartHour = dnc.DayTimeStartInSeconds / (dnc.DayDurationInSeconds / 24);
         var dayEndHour = dayStartHour + (dnc.DayTimeDurationInSeconds / (dnc.DayDurationInSeconds / 24));

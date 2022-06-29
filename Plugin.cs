@@ -175,6 +175,28 @@ public class Plugin : BasePlugin
             return;
         }
 
+        if (ev.Message.StartsWith("!export user")) {
+            var userComponents = VWorld.Server.EntityManager.GetComponentTypes(ev.SenderUserEntity);
+
+            // Open file for writing
+            var file = new System.IO.StreamWriter("user_components.md", false);
+            foreach (var kv in userComponents)
+            {
+                try
+                {
+                    // dbname = Regex.Replace(dbname, "[^a-zA-Z0-9_ ]", "");
+                    file.WriteLine($"{kv.GetManagedType().FullName}");
+                }
+                catch { }
+            }
+            file.Flush();
+
+            file.Close();
+            
+            ev.User.SendSystemMessage("<color=#00ff00ff>user_components.md has been written</color>");
+            return;
+        }
+        
         ev.User.SendSystemMessage("<color=#ff0000ff>Unknown command!</color>");
     }
 

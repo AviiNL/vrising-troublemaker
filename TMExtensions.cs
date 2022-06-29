@@ -31,16 +31,14 @@ public static class TMExtensions
     }
 }
 
-
 internal enum BloodTypes
 {
-    Frailed = -899826404,
-    Creature = -77658840,
-    Warrior = -1094467405,
-    Rogue = 793735874,
-    Brute = 581377887,
-    Scholar = -586506765,
-    Worker = -540707191
+    Creature = -1418430647,
+    Warrior = 923140362,
+    Rogue = 203103783, 
+    Brute = -1464869978,
+    Scholar = 1406393857,
+    Worker = -2025921616
 }
 
 internal struct FakeNull
