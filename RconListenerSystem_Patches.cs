@@ -8,6 +8,7 @@ using System.Linq;
 
 using OList = System.Collections.Generic.List<System.Object>;
 using System.Threading;
+using System.Text;
 
 namespace troublemaker;
 
@@ -21,7 +22,31 @@ public class RconListenerSystem_Patches
         if (!SettingsManager.ServerHostSettings.Rcon.Enabled)
             return;
 
-        foreach (var command in VRcon.GetExecutors())
+        var commands = VRcon.GetExecutors();
+
+        __instance._Server.CommandManager.Add("tm_help", "tm_help", "Shows usages and description of all commands", new Func<string, IList<string>, string>((cmd, _args) =>
+        {
+            // build a json object with all commands with their usages and descriptions
+            var strb = new StringBuilder();
+            strb.Append("{");
+            
+            // add this help command
+            strb.Append($"\"tm_help\":{{");
+            strb.Append($"\"description\":\"Shows usages and description of all commands\",");
+            strb.Append($"\"usage\":\"tm_help\"");
+            strb.Append("},");
+
+            foreach (var command in commands)
+            {
+                strb.Append(command.ToJson());
+                strb.Append(",");
+            }
+            strb.Remove(strb.Length - 1, 1);
+            strb.Append("}");
+            return strb.ToString();
+        }));
+
+        foreach (var command in commands)
         {
             if (command.executeMethod == null) continue;
 

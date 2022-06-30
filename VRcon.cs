@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using ProjectM.Network;
 using troublemaker.Attributes;
 using UnhollowerRuntimeLib;
@@ -35,6 +36,18 @@ internal class RconExecutor
         Name = attribute.Name;
         Description = attribute.Description;
         Usage = attribute.Usage;
+    }
+
+    public string ToJson()
+    {
+        var strb = new StringBuilder();
+
+        strb.Append($"\"{Name}\":{{");
+        strb.Append($"\"description\":\"{Description}\",");
+        strb.Append($"\"usage\":\"{Usage}\"");
+        strb.Append("}");
+
+        return strb.ToString();
     }
 }
 

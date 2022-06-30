@@ -1,0 +1,803 @@
+using System;
+using System.Text.RegularExpressions;
+using ChatCommands.Utils;
+using ProjectM;
+using ProjectM.CastleBuilding;
+using ProjectM.Gameplay.Scripting;
+using ProjectM.Network;
+using ProjectM.Scripting;
+using ProjectM.Shared;
+using ProjectM.UI;
+using UnhollowerRuntimeLib;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.Mathematics;
+using Unity.Transforms;
+using Wetstone.API;
+using CommandOutput = ChatCommands.Utils.CommandOutput;
+using Type = Il2CppSystem.Type;
+
+namespace ChatCommands.Commands
+{
+    [Command("dim", Usage = "dim", Description = "do not use", AdminOnly = true)]
+    public class Dim
+    {
+        public static void Initialize(Context ctx)
+        {
+
+            try
+            {
+
+                if (ctx.Args.Length < 1)
+                {
+                    return;
+                }
+
+                if (ctx.Args[0] == "search")
+                {
+
+                    var component = ctx.EntityManager.GetComponentData<LocalToWorld>(ctx.Event.SenderCharacterEntity);
+                    var s = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
+
+                    var query = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PrefabGUID>(), ComponentType.ReadOnly<LocalToWorld>());
+                    var entities = query.ToEntityArray(Allocator.Temp);
+                    foreach (var entity in entities)
+                    {
+                        if (VWorld.Server.EntityManager.HasComponent<LocalToWorld>(entity))
+                        {
+
+
+                            var translation = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(entity);
+                            var a = ctx.EntityManager.GetComponentData<PrefabGUID>(entity);
+                            if (math.distance(component.Position.xz, translation.Position.xz) < 10)
+                            {
+                                if (s.PrefabNameLookupMap.ContainsKey(a))
+                                {
+
+                                    if (ctx.Args.Length == 1 || (ctx.Args.Length == 2 && (Regex.IsMatch(s.PrefabNameLookupMap[a].ToString(), ctx.Args[1])) ||
+                                                                 Regex.IsMatch(a.GetHashCode().ToString(), ctx.Args[1])))
+                                    {
+                                        Plugin.Logger.LogError(
+                                            $"{a.GetHashCode()} {s.PrefabNameLookupMap[a]} - e:{entity.Index} {entity.Version}");
+                                        ctx.Event.User.SendSystemMessage(
+                                            $"{a.GetHashCode()} {s.PrefabNameLookupMap[a]} - e:{entity.Index} {entity.Version}");
+                                    }
+
+                                }
+                                else
+                                {
+                                    if (s._PrefabGuidToAssetGuidMap.ContainsKey(a))
+                                    {
+                                        if (ctx.Args.Length == 1 || (ctx.Args.Length == 2 && (Regex.IsMatch(s._PrefabGuidToAssetGuidMap[a].ToString(), ctx.Args[1])) ||
+                                                                     Regex.IsMatch(a.GetHashCode().ToString(), ctx.Args[1])))
+                                        {
+                                            Plugin.Logger.LogError(
+                                                $"{a.GetHashCode()} {s._PrefabGuidToAssetGuidMap[a]} - e:{entity.Index} {entity.Version}");
+                                            ctx.Event.User.SendSystemMessage(
+                                                $"{a.GetHashCode()} {s._PrefabGuidToAssetGuidMap[a]} - e:{entity.Index} {entity.Version}");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (ctx.Args.Length == 1 || (ctx.Args.Length == 2 && (Regex.IsMatch(a.GetHashCode().ToString(), ctx.Args[1]))))
+                                        {
+                                            ctx.Event.User.SendSystemMessage(
+                                                $"{a.GetHashCode()} UNKNOWN - e:{entity.Index} {entity.Version}");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            //nothing
+                        }
+                    }
+
+                }
+
+                if (ctx.Args[0] == "testuser")
+                {
+                    
+                    foreach (var t in ctx.EntityManager.GetComponentTypes(ctx.Event.SenderCharacterEntity))
+                    {
+                        Plugin.Logger.LogWarning($"sc-{t}");
+
+                    }
+                    foreach (var t in ctx.EntityManager.GetComponentTypes(ctx.Event.SenderUserEntity))
+                    {
+                        Plugin.Logger.LogWarning($"su-{t}");
+                    }
+
+                    var cwz = ctx.EntityManager.GetComponentData<CurrentMapZone>(ctx.Event.SenderUserEntity);
+                    Plugin.Logger.LogWarning(cwz.WorldZone.ToString());
+                }
+
+                /*if (ctx.Args[0] == "sct")
+                {
+                    var component = ctx.EntityManager.GetComponentData<LocalToWorld>(ctx.Event.SenderCharacterEntity);
+                    var s = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
+
+                    var query = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PrefabGUID>(),
+                        ComponentType.ReadOnly<LocalToWorld>());
+                    var entities = query.ToEntityArray(Allocator.Temp);
+                    foreach (var entity in entities)
+                    {
+                        if (VWorld.Server.EntityManager.HasComponent<LocalToWorld>(entity))
+                        {
+
+
+                            var translation = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(entity);
+                            var a = ctx.EntityManager.GetComponentData<PrefabGUID>(entity);
+                            if (math.distance(component.Position.xz, translation.Position.xz) < 10)
+                            {
+                                if (a.GuidHash == -1661525964)
+                                {
+                                    foreach (var tt in ctx.EntityManager.GetComponentTypes(entity))
+                                    {
+                                        Plugin.Logger.LogWarning($"{tt}");
+                                    }
+
+                                  //  Plugin.Logger.LogError(
+                                    //    $"{a.GetHashCode()} {s.PrefabNameLookupMap[a]} - e:{entity.Index} {entity.Version}");
+
+                                    var gameManager = VWorld.Server.GetExistingSystem<ServerScriptMapper>()?._ServerGameManager;
+                                 
+
+                                  //  var sct = ctx.EntityManager.GetComponentData<ScrollingCombatTextMessage>(entity);
+                                    //Plugin.Logger.LogWarning($"{sct.Position.xz}");
+                                }
+                            }
+                        }
+                    }
+                }*/
+
+                /*if (ctx.Args[0] == "t")
+                {
+                    var gameManager = VWorld.Server.GetExistingSystem<ServerScriptMapper>()?._ServerGameManager;
+                    var entity = ctx.Event.SenderCharacterEntity;
+                    var e = gameManager.PrefabLookupMap[new PrefabGUID(int.Parse(ctx.Args[1]))];
+                    foreach (var tt in ctx.EntityManager.GetComponentTypes(e))
+                    {
+                        Plugin.Logger.LogWarning($"{tt}");
+                    }
+                }*/
+                if (ctx.Args[0] == "meh")
+                {
+                    var translation = VWorld.Server.EntityManager.GetComponentData<Translation>(ctx.Event.SenderUserEntity);
+                    var gameManager = VWorld.Server.GetExistingSystem<ServerScriptMapper>()?._ServerGameManager;
+                    var entity = ctx.Event.SenderCharacterEntity;
+                    var e = gameManager.PrefabLookupMap[new PrefabGUID(int.Parse(ctx.Args[1]))];
+                    var sct = new ScrollingCombatTextMessage();
+                    sct.ShowForAll = true;
+
+                   // sct.Source = ctx.Event.SenderCharacterEntity;
+                   sct.Type = gameManager.SCTTypes.LocalChat_Type;
+                    sct.Target = ctx.Event.SenderCharacterEntity;
+                    //sct.Value = 1f;
+                    //sct.BloodQuality = 0.1f;
+                    sct.OverrideText = "OMGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG";
+                    sct.Position = translation.Value;
+                    
+                   // sct.Target = entity;
+                    sct.CreateTime = DateTime.UtcNow.ToFileTime();
+
+                    // gameManager.CommandBuffer.SetComponent(e, new Attach(entity));
+                    /*//buffer.CreateEntity();
+                    Plugin.Logger.LogWarning($"before");
+                    var spawnedEntity = gameManager.InstantiateEntityDeferred(entity, e);
+                    Plugin.Logger.LogWarning($"spawndef");
+
+                    try
+                    {
+                        gameManager.CommandBuffer.Unsafe.SetComponent(spawnedEntity,sct);
+                        // gameManager.CommandBuffer.Unsafe.AddComponent(spawnedEntity, ComponentType.ReadWrite<Attach>());
+                        //gameManager.CommandBuffer.Unsafe.SetComponent(spawnedEntity, new Attach(entity));
+
+
+                    }
+                    catch(Exception ee)
+                    {
+                        Plugin.Logger.LogWarning($"{ee.Message}");
+                    }*/
+                   // gameManager.CommandBuffer.Unsafe.AddComponent(spawnedEntity, ComponentType.ReadWrite<LifeTime>());
+                  ////  gameManager.CommandBuffer.Unsafe.SetComponent(spawnedEntity, new LifeTime()
+                   // {
+                   //     Duration = 10f,
+                  //      EndAction = LifeTimeEndAction.Destroy
+                 //   });
+
+                   //var translation = VWorld.Server.EntityManager.GetComponentData<Translation>(ctx.Event.SenderUserEntity);
+                 //  gameManager.CommandBuffer.Unsafe.SetComponent(spawnedEntity, translation);
+                    return;
+                    //gameManager.CommandBuffer.SetComponent(spawnedEntity, translation);
+
+
+                    /*//  -1696574816 to or //651179295
+                    //-2044057823
+                    var component = ctx.EntityManager.GetComponentData<LocalToWorld>(ctx.Event.SenderCharacterEntity);
+                    var s = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
+
+                    var query = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PrefabGUID>(),
+                        ComponentType.ReadOnly<LocalToWorld>());
+                    var entities = query.ToEntityArray(Allocator.Temp);
+                    foreach (var entity in entities)
+                    {
+                        if (VWorld.Server.EntityManager.HasComponent<LocalToWorld>(entity))
+                        {
+                            var a = ctx.EntityManager.GetComponentData<PrefabGUID>(entity);
+                            if (a.GuidHash == -2044057823)
+                            {
+                            
+                                var pos = ctx.EntityManager.GetComponentData<LocalToWorld>(entity);
+                                
+                                
+                  
+                                   // .  var prefabCollectionSystem = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
+                               //  var e = prefabCollectionSystem._PrefabGuidToEntityMap[new PrefabGUID(-1501933559)];
+                               //var e = prefabCollectionSystem._PrefabGuidToNameMap`
+                                 /*foreach (var componentType in ctx.EntityManager.GetComponentTypes(e))
+                                 {
+                                     Plugin.Logger.LogWarning($"+{componentType}");
+                                 }#1#
+                                 
+                                var gameManager = VWorld.Server.GetExistingSystem<ServerScriptMapper>()?._ServerGameManager;
+
+                                var e = gameManager.PrefabLookupMap[new PrefabGUID(-1262161950)];
+                                // gameManager.CommandBuffer.SetComponent(e, new Attach(entity));
+                                //buffer.CreateEntity();
+                                Plugin.Logger.LogWarning($"before");
+                                var spawnedEntity = gameManager.InstantiateEntityDeferred(entity,e);
+                                Plugin.Logger.LogWarning($"spawndef");
+                                gameManager.CommandBuffer.Unsafe.SetComponent(spawnedEntity, new Attach(entity));
+                                gameManager.CommandBuffer.Unsafe.AddComponent(spawnedEntity, ComponentType.ReadWrite<LifeTime>());
+                                var translation = VWorld.Server.EntityManager.GetComponentData<Translation>(ctx.Event.SenderUserEntity);
+                                //gameManager.CommandBuffer.SetComponent(spawnedEntity, translation);
+                                gameManager.CommandBuffer.Unsafe.SetComponent(spawnedEntity, new LifeTime()
+                                {
+                                    Duration = 10f,
+                                    EndAction = LifeTimeEndAction.Destroy
+                                });
+                              
+
+
+                                //Entity spawnedEntity = buffer.Instantiate(e);
+                           
+                              // gameManager.SetComponentImmediate<Attach>(spawnedEntity, new Attach(entity));
+                             
+
+                                //buffer.SetComponent(spawnedEntity, translation);
+                            }
+                        }
+                    }*/
+                }
+
+                if (ctx.Args[0] == "types")
+                {
+                    var component = ctx.EntityManager.GetComponentData<LocalToWorld>(ctx.Event.SenderCharacterEntity);
+                    var s = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
+
+                    var query = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PrefabGUID>(),
+                        ComponentType.ReadOnly<LocalToWorld>());
+                    var entities = query.ToEntityArray(Allocator.Temp);
+                    foreach (var entity in entities)
+                    {
+                        if (VWorld.Server.EntityManager.HasComponent<LocalToWorld>(entity))
+                        {
+
+
+                            var translation = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(entity);
+                            var a = ctx.EntityManager.GetComponentData<PrefabGUID>(entity);
+                            if (math.distance(component.Position.xz, translation.Position.xz) < 15)
+                            {
+                                if (s.PrefabNameLookupMap.ContainsKey(a))
+                                {
+
+                                    if (ctx.Args.Length == 2 &&
+                                        (ctx.Args.Length == 2 && (Regex.IsMatch(s.PrefabNameLookupMap[a].ToString(),
+                                             ctx.Args[1])) ||
+                                         Regex.IsMatch(a.GetHashCode().ToString(), ctx.Args[1])))
+                                    {
+                                        ctx.Event.User.SendSystemMessage(
+                                            $"{a.GetHashCode()} {s.PrefabNameLookupMap[a]} - e:{entity.Index} {entity.Version}");
+                                        Plugin.Logger.LogError(
+                                            $"{a.GetHashCode()} {s.PrefabNameLookupMap[a]} - e:{entity.Index} {entity.Version}");
+                                        foreach (var t in ctx.EntityManager.GetComponentTypes(entity))
+                                        {
+                                            ctx.Event.User.SendSystemMessage(
+                                                $"--{t}");
+                                            Plugin.Logger.LogError(
+                                                $"--{t}");
+                                        }
+                                    }
+
+                                }
+                                else
+                                {
+                                    if (s._PrefabGuidToAssetGuidMap.ContainsKey(a))
+                                    {
+                                        if (ctx.Args.Length == 2 &&
+                                            (ctx.Args.Length == 2 &&
+                                             (Regex.IsMatch(s._PrefabGuidToAssetGuidMap[a].ToString(), ctx.Args[1])) ||
+                                             Regex.IsMatch(a.GetHashCode().ToString(), ctx.Args[1])))
+                                        {
+                                            ctx.Event.User.SendSystemMessage(
+                                                $"{a.GetHashCode()} {s.PrefabNameLookupMap[a]} - e:{entity.Index} {entity.Version}");
+                                            Plugin.Logger.LogError(
+                                                $"{a.GetHashCode()} {s.PrefabNameLookupMap[a]} - e:{entity.Index} {entity.Version}");
+                                            foreach (var t in ctx.EntityManager.GetComponentTypes(entity))
+                                            {
+                                                ctx.Event.User.SendSystemMessage(
+                                                    $"--{t}");
+                                                Plugin.Logger.LogError(
+                                                    $"--{t}");
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (ctx.Args.Length == 2 && (ctx.Args.Length == 2 &&
+                                                                     (Regex.IsMatch(a.GetHashCode().ToString(),
+                                                                         ctx.Args[1]))))
+                                        {
+                                            ctx.Event.User.SendSystemMessage(
+                                                $"{a.GetHashCode()} UNKNOWN - e:{entity.Index} {entity.Version}");
+                                            Plugin.Logger.LogError(
+                                                $"{a.GetHashCode()} UNKNOWN - e:{entity.Index} {entity.Version}");
+                                            foreach (var t in ctx.EntityManager.GetComponentTypes(entity))
+                                            {
+                                                ctx.Event.User.SendSystemMessage(
+                                                    $"--{t}");
+                                                Plugin.Logger.LogError(
+                                                    $"--{t}");
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (ctx.Args[0] == "edestroy")
+                {
+                    var component = ctx.EntityManager.GetComponentData<LocalToWorld>(ctx.Event.SenderCharacterEntity);
+                    var s = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
+                    var query = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PrefabGUID>(), ComponentType.ReadOnly<LocalToWorld>());
+                    var entities = query.ToEntityArray(Allocator.Temp);
+                    foreach (var entity in entities)
+                    {
+                        var translation = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(entity);
+                        var a = ctx.EntityManager.GetComponentData<PrefabGUID>(entity);
+                        if (math.distance(component.Position.xz, translation.Position.xz) < 15)
+                        {
+                            if (entity.Index == int.Parse(ctx.Args[1]) && entity.Version == int.Parse(ctx.Args[2]))
+                            {
+                                DestroyUtility.Destroy(ctx.EntityManager, entity);
+                            }
+                        }
+                    }
+                }
+
+                if (ctx.Args[0] == "regexdestroy")
+                {
+                    var component = ctx.EntityManager.GetComponentData<LocalToWorld>(ctx.Event.SenderCharacterEntity);
+                    var s = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
+
+                    var query = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PrefabGUID>(),
+                        ComponentType.ReadOnly<LocalToWorld>());
+                    var entities = query.ToEntityArray(Allocator.Temp);
+                    foreach (var entity in entities)
+                    {
+                        if (VWorld.Server.EntityManager.HasComponent<LocalToWorld>(entity))
+                        {
+
+
+                            var translation = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(entity);
+                            var a = ctx.EntityManager.GetComponentData<PrefabGUID>(entity);
+                            if (math.distance(component.Position.xz, translation.Position.xz) < 15)
+                            {
+                                if (s.PrefabNameLookupMap.ContainsKey(a))
+                                {
+
+                                    if (ctx.Args.Length == 2 &&
+                                        (ctx.Args.Length == 2 && (Regex.IsMatch(s.PrefabNameLookupMap[a].ToString(),
+                                             ctx.Args[1])) ||
+                                         Regex.IsMatch(a.GetHashCode().ToString(), ctx.Args[1])))
+                                    {
+                                        Plugin.Logger.LogError(
+                                            $"{a.GetHashCode()} {s.PrefabNameLookupMap[a]} - e:{entity.Index} {entity.Version}");
+                                        ctx.Event.User.SendSystemMessage(
+                                            $"{a.GetHashCode()} {s.PrefabNameLookupMap[a]} - e:{entity.Index} {entity.Version}");
+                                        DestroyUtility.Destroy(ctx.EntityManager, entity);
+                                    }
+
+                                }
+                                else
+                                {
+                                    if (s._PrefabGuidToAssetGuidMap.ContainsKey(a))
+                                    {
+                                        if (ctx.Args.Length == 2 &&
+                                            (ctx.Args.Length == 2 &&
+                                             (Regex.IsMatch(s._PrefabGuidToAssetGuidMap[a].ToString(), ctx.Args[1])) ||
+                                             Regex.IsMatch(a.GetHashCode().ToString(), ctx.Args[1])))
+                                        {
+                                            Plugin.Logger.LogError(
+                                                $"{a.GetHashCode()} {s._PrefabGuidToAssetGuidMap[a]} - e:{entity.Index} {entity.Version}");
+                                            ctx.Event.User.SendSystemMessage(
+                                                $"{a.GetHashCode()} {s._PrefabGuidToAssetGuidMap[a]} - e:{entity.Index} {entity.Version}");
+                                            DestroyUtility.Destroy(ctx.EntityManager, entity);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (ctx.Args.Length == 2 && (ctx.Args.Length == 2 &&
+                                                                     (Regex.IsMatch(a.GetHashCode().ToString(),
+                                                                         ctx.Args[1]))))
+                                        {
+                                            ctx.Event.User.SendSystemMessage(
+                                                $"{a.GetHashCode()} UNKNOWN - e:{entity.Index} {entity.Version}");
+                                            DestroyUtility.Destroy(ctx.EntityManager, entity);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (ctx.Args[0] == "save")
+                {
+
+                    VWorld.Server.GetExistingSystem<TriggerPersistenceSaveSystem>().TriggerSave(SaveReason.ManualSave, "Dimsave");
+
+                    return;
+                }
+
+
+                if (ctx.Args[0] == "castle")
+                {
+                    if (ctx.Args.Length != 2)
+                    {
+                        CommandOutput.MissingArguments(ctx);
+                        return;
+                    }
+                    Plugin.Logger.LogWarning($"CASTLE: {ctx.Args[1]}");
+                    var _world = VWorld.Server;
+                    var query = _world.EntityManager.CreateEntityQuery(
+                        ComponentType.ReadOnly<LocalToWorld>(),
+                        ComponentType.ReadOnly<PrefabGUID>(),
+                        ComponentType.ReadOnly<EntityCategory>(),
+                        ComponentType.ReadOnly<Pylonstation>(),
+                        ComponentType.ReadOnly<InventoryOwner>()
+
+                        );
+                    var xi = 0;
+                    foreach (var entity in query.ToEntityArray(Allocator.Temp))
+                    {
+                        var entityCategory = _world.EntityManager.GetComponentData<EntityCategory>(entity);
+                        
+                        if (entityCategory.UnitCategory == UnitCategory.CastleObject)
+                        {
+                            if (!ctx.EntityManager.HasComponent<UserOwner>(entity))
+                            {
+                                continue;
+                            }
+
+                            var userOwner = ctx.EntityManager.GetComponentData<UserOwner>(entity);
+                            var user = ctx.EntityManager.GetComponentData<User>(userOwner.Owner
+                                .GetEntityOnServer());
+                            Plugin.Logger.LogWarning($"{user.CharacterName}");
+                            if (user.CharacterName.ToString() == ctx.Args[1].ToString())
+                            {
+                                foreach (var aComponentType in ctx.EntityManager.GetComponentTypes(entity))
+                                {
+                                    Plugin.Logger.LogWarning($"{aComponentType.ToString()}");
+                                }
+                                var prefabCollection = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
+                                var buff = ctx.EntityManager.GetBuffer<InventoryBuffer>(entity);
+                                var x = 0;
+                                bool hasBlood = false;
+                                foreach (var i in buff.AsNativeArray())
+                                {
+                                    if (i.ItemType.GuidHash != 0)
+                                    {
+                                        hasBlood = true;
+                                        Plugin.Logger.LogWarning($"{x}|{prefabCollection._PrefabGuidToNameMap[i.ItemType]}|{i.Stacks}");
+                                        InventoryUtilitiesServer.ClearSlot(ctx.EntityManager, entity, x);
+                                    }
+
+                                    x++;
+                                }
+
+                                if (hasBlood)
+                                {
+                                    var data = new CastleDecayAndRegen();
+                                    var trans = ctx.EntityManager.GetComponentData<LocalToWorld>(entity);
+                                    data.CanDieFromDecay = true;
+                                    data.DecayPercentageOnTick = new half(100f);
+                                    data.RegenPerecentageOntIck = new half(1f);
+                                    ctx.EntityManager.SetComponentData<CastleDecayAndRegen>(entity, data);
+                                    xi++;
+                                    CommandHelper.TeleportTo(ctx, trans.Position.xz);
+                                    ctx.Event.User.SendSystemMessage($"Removed essence from castle... it will go boom!");
+                                    ServerChatUtils.SendSystemMessageToAllClients(ctx.EntityManager, $"BLOOD FOR THE BLOOD GOD! {ctx.Args[1]}'s castle has been sacrificed to chaos!");
+                                    return;
+                                }
+                                
+                            }
+                        }
+
+                    }
+
+                    ctx.Event.User.SendSystemMessage($"ERROR: Can not find castle heart with blood uinder that name.");
+                    CommandOutput.InvalidArguments(ctx);
+                    return;
+                }
+
+
+                if (ctx.Args[0] == "gengmitem")
+                {
+
+
+                    var gameManager = VWorld.Server.GetExistingSystem<ServerScriptMapper>()?._ServerGameManager;
+                    var gameDataSystem = VWorld.Server.GetExistingSystem<GameDataSystem>();
+                    var prefabCollection = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
+
+                    /*
+
+                    var query = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<User>());
+                    var entities = query.ToEntityArray(Allocator.Temp);
+                    foreach (var entity in entities)
+                    {
+                        var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
+                        InventoryUtilities.TryGetInventoryEntity(VWorld.Server.EntityManager,
+                            ctx.Event.User.LocalCharacter.GetEntityOnServer(), out Entity playerInventory);
+                        if (playerInventory == Entity.Null)
+                        {
+                            return;
+                        }
+
+                        var buff = ctx.EntityManager.GetBuffer<InventoryBuffer>(playerInventory);
+                        foreach (var item in buff.AsNativeArray())
+                        {
+                            if (ctx.EntityManager.HasComponent<Durability>(item.ItemEntity._Entity))
+                            {
+                                if(ctx.EntityManager.HasComponent<WeaponLevel>(e)
+                            }
+                        }
+                    }*/
+                    //}
+                    InventoryUtilities.TryGetInventoryEntity(VWorld.Server.EntityManager,
+                        ctx.Event.User.LocalCharacter.GetEntityOnServer(), out Entity playerInventory);
+                    if (playerInventory == Entity.Null)
+                    {
+                        return;
+                    }
+
+
+
+                    var buff = ctx.EntityManager.GetBuffer<InventoryBuffer>(playerInventory);
+                    if (int.TryParse(ctx.Args[1], out int slot))
+                    {
+
+                        Plugin.Logger.LogWarning(slot);
+                        var item = buff.AsNativeArray()[slot];
+
+
+                        ctx.Event.User.SendSystemMessage(
+                            $"Listing {prefabCollection._PrefabGuidToNameMap[item.ItemType]} x{item.Stacks}");
+                        var types = ctx.EntityManager.GetComponentTypes(item.ItemEntity._Entity);
+                        foreach (var t in types)
+                        {
+                            Plugin.Logger.LogWarning(t);
+                        }
+
+                        if (ctx.EntityManager.HasComponent<Durability>(item.ItemEntity._Entity))
+                        {
+                            var d = ctx.EntityManager.GetComponentData<Durability>(item.ItemEntity._Entity);
+                            if (d.IsBroken)
+                            {
+                                ctx.Event.User.SendSystemMessage("Can not sell broken items!");
+                                return;
+                            }
+
+                            // d.Value = 1.01f;
+                            ctx.EntityManager.SetComponentData<Durability>(item.ItemEntity._Entity, d);
+                            Plugin.Logger.LogWarning($"{d.Value} {d.MaxDurability} {d.OneLevelFactor}");
+                            var id = ctx.EntityManager.GetBuffer<ModifyUnitStatBuff_DOTS>(item.ItemEntity._Entity);
+
+                            foreach (ModifyUnitStatBuff_DOTS mm in id.AsNativeArray())
+                            {
+                                Plugin.Logger.LogWarning($"{mm.Value} {mm.ModificationType} {mm.StatType} {mm.Id.Id}");
+
+                            }
+
+                            id.Clear();
+
+
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = -100f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.CooldownModifier
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 0.99f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.PrimaryAttackSpeed
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 10.0f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.AttackSpeed
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 100.0f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.PhysicalResistance
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 100.0f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.PhysicalCriticalStrikeChance
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 100.0f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.PhysicalCriticalStrikeDamage
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 100.0f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.SpellCriticalStrikeChance
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 100.0f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.SpellCriticalStrikeDamage
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 100.0f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.SpellLifeLeech
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 100.0f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.SpellPower
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 100.0f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.PhysicalLifeLeech
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 100.0f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.MaxHealth
+                            });
+                            /*id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 0.001f,
+                                ModificationType = ModificationType.Set,
+                                StatType = UnitStatType.AttackSpeed
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 500.99f,
+                                ModificationType = ModificationType.Set,
+                                StatType = UnitStatType.PhysicalLifeLeech
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 500.99f,
+                                ModificationType = ModificationType.Set,
+                                StatType = UnitStatType.PhysicalResistance
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 500.99f,
+                                ModificationType = ModificationType.Set,
+                                StatType = UnitStatType.PhysicalCriticalStrikeChance
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 500.99f,
+                                ModificationType = ModificationType.Set,
+                                StatType = UnitStatType.PhysicalResistance
+                            });
+                            id.Add(new ModifyUnitStatBuff_DOTS()
+                            {
+                                Id = ModificationId.NewId(0),
+                                Value = 0.99f,
+                                ModificationType = ModificationType.MultiplyBaseAdd,
+                                StatType = UnitStatType.PhysicalCriticalStrikeDamage
+                            });*/
+
+                            var ws = ctx.EntityManager.GetComponentData<WeaponLevelSource>(item.ItemEntity._Entity);
+                            Plugin.Logger.LogWarning($"{ws.Level}");
+                            ws.Level = 500;
+                            ctx.EntityManager.SetComponentData<WeaponLevelSource>(item.ItemEntity._Entity, ws);
+
+                            var zz = ctx.EntityManager.GetComponentData<UnitStats>(ctx.Event.SenderCharacterEntity);
+                            var sourceProperties = typeof(UnitStats).GetFields();
+                            foreach (var za in sourceProperties)
+                            {
+                                if (za.FieldType == typeof(ModifiableBool))
+                                {
+                                    var val = za.GetValue(zz);
+
+                                    Plugin.Logger.LogWarning($"{za.Name} - {((ModifiableBool)val).Value}");
+                                }
+                                else if (za.FieldType == typeof(ModifiableFloat))
+                                {
+                                    var val = za.GetValue(zz);
+
+                                    Plugin.Logger.LogWarning($"{za.Name} - {((ModifiableFloat)val).Value}");
+                                }
+                                else if (za.FieldType == typeof(ModifiableFloat3))
+                                {
+                                    var val = za.GetValue(zz);
+
+                                    Plugin.Logger.LogWarning($"{za.Name} - {((ModifiableFloat3)val).Value}");
+                                }
+                                else if (za.FieldType == typeof(ModifiableInt))
+                                {
+                                    var val = za.GetValue(zz);
+
+                                    Plugin.Logger.LogWarning($"{za.Name} - {((ModifiableInt)val).Value}");
+                                }
+                                else
+                                {
+                                    var val = za.GetValue(zz);
+                                    Plugin.Logger.LogWarning($"{za.Name} - {val.ToString()}");
+                                }
+
+                            }
+
+                            // var l = ctx.EntityManager.GetComponentData<WeaponLevelSource>(item.ItemEntity._Entity);
+                            //ArmorLevelSource
+                            //l.Level
+                        }
+
+                    }
+                }
+
+            }
+            catch (Exception e)
+            {
+                ctx.Event.User.SendSystemMessage($"ERROR: {e.Message}");
+                Plugin.Logger.LogError(e.Message);
+            }
+        }
+    }
+}

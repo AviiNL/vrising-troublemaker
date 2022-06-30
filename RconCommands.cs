@@ -22,6 +22,17 @@ namespace troublemaker;
 public class RconCommands
 {
 
+    [RconCommand("tm_save", Usage = "tm_save", Description = "Saves the current game state")]
+    public static string Save(string[] args)
+    {
+        // current time to string
+        var time = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
+        VWorld.Server.GetExistingSystem<TriggerPersistenceSaveSystem>().TriggerSave(SaveReason.ManualSave, $"TM_SAVE_{time}");
+        Plugin.Logger?.LogInfo("Saved game");
+
+        return "{\"result\": \"Saved Game\"}";
+    }
+
     [RconCommand("tm_message", Usage = "tm_message <steamid> <message>", Description = "Message Command")]
     public string MessageCommand(ulong steamId, string[] message)
     {

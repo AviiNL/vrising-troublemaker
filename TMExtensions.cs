@@ -1,3 +1,4 @@
+using System.Text;
 using ProjectM.Network;
 using Unity.Entities;
 
