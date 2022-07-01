@@ -56,6 +56,8 @@ internal static class Helpers
 
         // Wheb pos is a location inside a building or castle, it should return true.
 
+        // This needs to return false if the player is stuck inside an entity, eg, The eye of twilight.
+
         return true;
     }
 
