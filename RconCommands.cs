@@ -40,27 +40,35 @@ public class RconCommands
             return "{\"result\": \"User not found\"}";
         }
 
+        var msg = string.Join(" ", message);
+        msg = msg.Replace("{player_name}", user.CharacterName.ToString());
+
         Messaging.getInstance().SendMessage(user, ServerChatMessageType.Lore, string.Join(" ", message));
         return $"{{\"message\":\"{string.Join(" ", message)}\"}}";
     }
 
-    [RconCommand("tm_message_global", Usage = "tm_message_global <message>", Description = "Global Message Command")]
+    [RconCommand("tm_message_global", Usage = "tm_message_global [steamid] <message>", Description = "Global Message Command")]
     public string GlobalMessageCommand(string[] message)
     {
         List<string> msgs = message.ToList();
-        ServerChatMessageType t;
+        ServerChatMessageType t = ServerChatMessageType.Lore;
         string msg;
-        if (!Enum.TryParse<ServerChatMessageType>(message[0], true, out t))
+        bool hasSteamId = false;
+        if (!ulong.TryParse(message[0], out var steamId))
         {
-            t = ServerChatMessageType.Lore;
             msg = string.Join(" ", msgs);
         }
         else
         {
+            hasSteamId = true;
             msgs.Shift();
             msg = string.Join(" ", msgs);
         }
 
+        if (hasSteamId && Helpers.TryGetUserCharacter(steamId, out var user, out var userEntity, out var character))
+        {
+            msg = msg.Replace("{player_name}", user.CharacterName.ToString());
+        }
 
         var query = new[] {
             ComponentType.ReadOnly(Il2CppType.Of<User>()),
@@ -70,15 +78,15 @@ public class RconCommands
 
         foreach (var entity in system.ToEntityArray(Allocator.Temp))
         {
-            var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
+            var u = VWorld.Server.EntityManager.GetComponentData<User>(entity);
 
-            if (!user.IsConnected) continue;
+            if (!u.IsConnected) continue;
 
             //user.SendSystemMessage(string.Join(" ", message));
-            Messaging.getInstance().SendMessage(user, t, msg);
+            Messaging.getInstance().SendMessage(u, t, msg);
         }
 
-        return $"{{\"message\":\"{string.Join(" ", message)}\"}}";
+        return $"{{\"message\":\"{msg}\"}}";
     }
 
     [RconCommand("tm_health", Usage = "tm_healh <steamid> <health%>", Description = "Health Command")]
