@@ -5,11 +5,30 @@ using Wetstone.API;
 using ProjectM.Network;
 using Unity.Mathematics;
 using ProjectM;
+using ProjectM.Tiles;
+using ProjectM.Terrain;
+using UnityEngine;
 
 namespace troublemaker;
 
 internal static class Helpers
 {
+    private static TileMapCollisionMath.MapData? _mapDataValue;
+    private static TileMapCollisionMath.MapData _mapData
+    {
+        get
+        {
+            if (_mapDataValue == null)
+            {
+                var terrainManager = VWorld.Server.GetExistingSystem<TerrainManager>();
+                var terrainChunks = terrainManager.GetChunksAndComplete();
+                var getTileCollision = VWorld.Server.EntityManager.GetBufferFromEntity<ChunkTileCollision>();
+                var getGameplayHeights = VWorld.Server.EntityManager.GetBufferFromEntity<ChunkGameplayHeights>();
+                _mapDataValue = TileCollisionHelper.CreateMapData(TileCollisionHelper.CreateLinePolygon(), terrainChunks, getTileCollision, getGameplayHeights);
+            }
+            return _mapDataValue;
+        }
+    }
 
     internal static bool TryGetUserCharacter(ulong SteamID, out User User, out Entity UserEntity, out Entity Character)
     {
@@ -52,22 +71,46 @@ internal static class Helpers
 
     internal static bool IsWalkable(float2 pos)
     {
-        // This method needs to return false if the player can not walk when teleported to the given coordinates, and true if the posisiton is a location that the player can walk away from.
+        return IsWalkable(pos, 1);
+    }
 
-        // Wheb pos is a location inside a building or castle, it should return true.
-
-        // This needs to return false if the player is stuck inside an entity, eg, The eye of twilight.
-
-        return true;
+    /// <summary>
+    /// Checks a circle area with a specified radius to to if there is any collision for normal movement
+    /// </summary>
+    /// <param name="pos">The position that is being checked</param>
+    /// <param name="radius">The radius used for the check</param>
+    /// <returns>True if the position is valid for normal movement</returns>
+    internal static bool IsWalkable(float2 pos, int radius)
+    {
+        return !TileMapCollisionMath.CheckStaticCircle(_mapData, pos, radius, (byte)MapCollisionFlags.CollideNormalMovement);
     }
 
     internal static float2 OffsetToWalkable(float2 pos)
     {
-        // This method needs to give back a new set of coordinates where the player can walk if the given coordinates are not walkable, otherwise give back the same coordinates.
-        // The theory is that `PathfindingUtility.TryFindFirstWalkable` will give back a set of coordinates nearest to the input coordiates where the player is able to move around.
-        // eg, when `pos` is in a body of water, in a clove, or outside of the map bounds the method gives back a set of coordinates on the edge instead.
+        return OffsetToWalkable(pos, 1, 12, 3);
+    }
 
-        // This needs to also include if the player is stuck inside an entity, eg, The eye of twilight.
+    /// <summary>
+    /// Performs multiple checks around the position to find a valid normal movement position
+    /// </summary>
+    /// <param name="pos">The position that is being checked</param>
+    /// <param name="distance">The distance checked in each loop of the checks</param>
+    /// <param name="steps">The number of checks to perform in each loop</param>
+    /// <param name="distanceChecks">The number of times to icrement the distance and check around the position again</param>
+    /// <returns></returns>
+    internal static float2 OffsetToWalkable(float2 pos, int distance, int steps, int distanceChecks)
+    {
+        var stepAngle = Mathf.PI * 2f / steps;
+
+        for (var d = 1; d < distanceChecks + 1; d++)
+        {
+            for (var r = 0f; r < Mathf.PI * 2; r += stepAngle)
+            {
+                var newPos = pos + new float2(Mathf.Cos(r), Mathf.Sin(r)) * distance * d;
+                if (IsWalkable(newPos))
+                    return newPos;
+            }
+        }
 
         return pos;
     }
