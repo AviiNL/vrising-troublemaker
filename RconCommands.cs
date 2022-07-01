@@ -133,7 +133,7 @@ public class RconCommands
     }
 
     [RconCommand("tm_give", Usage = "tm_give <steamid> <item> <quantity>", Description = "Add item(s) to players inventory")]
-    public string GiveCommand(ulong steamId, string item, int quantity) // TODO: Check if inventory is full, if so, drop item on ground
+    public string GiveCommand(ulong steamId, string item, int quantity)
     {
         if (!Helpers.TryGetUserCharacter(steamId, out var user, out var userEntity, out var character))
         {
