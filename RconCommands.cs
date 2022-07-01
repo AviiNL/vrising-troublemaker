@@ -2,14 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
 using ProjectM;
 using ProjectM.Gameplay.Systems;
 using ProjectM.Network;
-using ProjectM.Pathfinding;
-using ProjectM.Scripting;
-using ProjectM.Terrain;
-using ProjectM.Tiles;
 using troublemaker.Attributes;
 using UnhollowerRuntimeLib;
 using Unity.Collections;
@@ -158,7 +153,8 @@ public class RconCommands
             }, bytePtr, false);
             var boxedBytePtr = System.IntPtr.Subtract(bytePtr, 0x10);
             var hack = new Il2CppSystem.Nullable<int>(boxedBytePtr);
-            if (!InventoryUtilitiesServer.TryAddItem(VWorld.Server.EntityManager, gameDataSystem.ItemHashLookupMap, character, guid, quantity, out _, out Entity e, default, hack, true, false, false)) {
+            if (!InventoryUtilitiesServer.TryAddItem(VWorld.Server.EntityManager, gameDataSystem.ItemHashLookupMap, character, guid, quantity, out _, out Entity e, default, hack, true, false, false))
+            {
                 // Adding item failed, drop it on the ground instead
                 InventoryUtilitiesServer.CreateDropItem(VWorld.Server.EntityManager, character, guid, quantity, empty_entity);
             }
@@ -192,7 +188,7 @@ public class RconCommands
         {
             return "{\"error\":\"Collision detected\"}";
         }
-        
+
         return $"{{\"player\":\"{user.CharacterName}\",\"x\":{x},\"z\":{z}}}";
     }
 

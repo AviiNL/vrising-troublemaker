@@ -6,11 +6,9 @@ using BepInEx.IL2CPP;
 using BepInEx.Logging;
 using HarmonyLib;
 using ProjectM;
-using ProjectM.Network;
 using troublemaker.Attributes;
 using UnhollowerRuntimeLib;
-using Unity.Collections;
-using Unity.Entities;
+using Unity.Transforms;
 using UnityEngine;
 using Wetstone.API;
 using Wetstone.Hooks;
@@ -40,8 +38,9 @@ public class Plugin : BasePlugin
 
         var types = Assembly.GetExecutingAssembly().GetTypes()
             .Where(t => t.IsDefined(typeof(RconHandlerAttribute)));
-        
-        foreach (var type in types) {
+
+        foreach (var type in types)
+        {
             VRcon.Register(type);
         }
 
@@ -75,6 +74,12 @@ public class Plugin : BasePlugin
             return;
         }
 
+        if (ev.Message.StartsWith("!clean"))
+        {
+            WorldUtility.CleanUpPhysicsGarbage();
+            return;
+        }
+
         if (ev.Message.StartsWith("!blood"))
         {
             var bl = float.Parse(ev.Message.Substring(7));
@@ -83,38 +88,22 @@ public class Plugin : BasePlugin
             {
                 blood.Value = bl;
             });
-            
+
             ev.User.SendSystemMessage("Set current Blood to <color=#ffff00ff>" + bl + "</color>.");
             return;
         }
 
         if (ev.Message.StartsWith("!test"))
         {
+            var component = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(ev.SenderCharacterEntity);
 
-            var value = float.Parse(ev.Message.Substring(6));
-
-            var query = new[] {
-                ComponentType.ReadOnly(Il2CppType.Of<User>()),
-            };
-
-            var system = VWorld.Server.EntityManager.CreateEntityQuery(query);
-
-            foreach (var entity in system.ToEntityArray(Allocator.Temp))
-            {
-                var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
-                var localCharacter = user.LocalCharacter;
-                var characterEntity = localCharacter._Entity;
-
-                characterEntity.WithComponentData((ref Blood blood) => {
-                    blood.Value = value;
-                });
-                
-            }
+            Helpers.IsWalkable(new Unity.Mathematics.float2(component.Position.x, component.Position.z));
 
             return;
         }
 
-        if (ev.Message.StartsWith("!export items")) {
+        if (ev.Message.StartsWith("!export items"))
+        {
             var gameDataSystem = VWorld.Server.GetExistingSystem<GameDataSystem>();
             var managed = gameDataSystem.ManagedDataRegistry;
 
@@ -129,7 +118,7 @@ public class Plugin : BasePlugin
                 {
 
                     var item = managed.GetOrDefault<ManagedItemData>(entry.Key);
-                    
+
                     var dbname = item.PrefabName.ToString().ToLower().Trim();
                     // remove all special characters from dbname
                     dbname = Regex.Replace(dbname, "[^a-zA-Z0-9_ ]", "");
@@ -146,12 +135,13 @@ public class Plugin : BasePlugin
             file.Flush();
 
             file.Close();
-            
+
             ev.User.SendSystemMessage("<color=#00ff00ff>items.md has been written</color>");
             return;
         }
 
-        if (ev.Message.StartsWith("!export spawnable")) {
+        if (ev.Message.StartsWith("!export spawnable"))
+        {
             var prefabCollectionSystem = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
 
             // Open file for writing
@@ -161,7 +151,8 @@ public class Plugin : BasePlugin
                 try
                 {
                     // dbname = Regex.Replace(dbname, "[^a-zA-Z0-9_ ]", "");
-                    if (kv.Value.ToString().StartsWith("CHAR_")) {
+                    if (kv.Value.ToString().StartsWith("CHAR_"))
+                    {
                         file.WriteLine($"{kv.Value}");
                     }
                 }
@@ -170,12 +161,13 @@ public class Plugin : BasePlugin
             file.Flush();
 
             file.Close();
-            
+
             ev.User.SendSystemMessage("<color=#00ff00ff>spawnable.md has been written</color>");
             return;
         }
 
-        if (ev.Message.StartsWith("!export user")) {
+        if (ev.Message.StartsWith("!export user"))
+        {
             var userComponents = VWorld.Server.EntityManager.GetComponentTypes(ev.SenderUserEntity);
 
             // Open file for writing
@@ -192,11 +184,11 @@ public class Plugin : BasePlugin
             file.Flush();
 
             file.Close();
-            
+
             ev.User.SendSystemMessage("<color=#00ff00ff>user_components.md has been written</color>");
             return;
         }
-        
+
         ev.User.SendSystemMessage("<color=#ff0000ff>Unknown command!</color>");
     }
 
@@ -209,12 +201,12 @@ public class Plugin : BasePlugin
         this._myHook.UnpatchSelf();
         if (_myInjected != null)
             UnityEngine.Object.Destroy(_myInjected);
-        
+
         return true;
     }
 
     private void Register()
     {
-        
+
     }
 }
