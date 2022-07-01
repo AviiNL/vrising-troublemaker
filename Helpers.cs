@@ -8,6 +8,7 @@ using ProjectM;
 using ProjectM.Tiles;
 using ProjectM.Terrain;
 using UnityEngine;
+using System;
 
 namespace troublemaker;
 
@@ -87,7 +88,7 @@ internal static class Helpers
 
     internal static float2 OffsetToWalkable(float2 pos)
     {
-        return OffsetToWalkable(pos, 1, 12, 3);
+        return OffsetToWalkable(pos, 1, 12, 10);
     }
 
     /// <summary>
@@ -106,7 +107,7 @@ internal static class Helpers
         {
             for (var r = 0f; r < Mathf.PI * 2; r += stepAngle)
             {
-                var newPos = pos + new float2(Mathf.Cos(r), Mathf.Sin(r)) * distance * d;
+                var newPos = pos + new float2(Mathf.Cos(r), Mathf.Sin(r)) * distance * (int)Math.Pow(2, d);
                 if (IsWalkable(newPos))
                     return newPos;
             }
