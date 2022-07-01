@@ -158,7 +158,10 @@ public class RconCommands
             }, bytePtr, false);
             var boxedBytePtr = System.IntPtr.Subtract(bytePtr, 0x10);
             var hack = new Il2CppSystem.Nullable<int>(boxedBytePtr);
-            InventoryUtilitiesServer.TryAddItem(VWorld.Server.EntityManager, gameDataSystem.ItemHashLookupMap, character, guid, quantity, out _, out Entity e, default, hack, true, false, false);
+            if (!InventoryUtilitiesServer.TryAddItem(VWorld.Server.EntityManager, gameDataSystem.ItemHashLookupMap, character, guid, quantity, out _, out Entity e, default, hack, true, false, false)) {
+                // Adding item failed, drop it on the ground instead
+                InventoryUtilitiesServer.CreateDropItem(VWorld.Server.EntityManager, character, guid, quantity, empty_entity);
+            }
         }
 
         return $"{{\"player\":\"{user.CharacterName}\",\"item\":\"{item}\",\"quantity\":\"{quantity}\"}}";
@@ -173,7 +176,7 @@ public class RconCommands
         }
 
         VWorld.Server.GetExistingSystem<UnitSpawnerUpdateSystem>().SpawnUnit(empty_entity, guid, new float3(x, 0, z), 1, 1, 2, -1);
-        
+
         return $"{{\"npc\":\"{Name}\",\"x\":{x},\"z\":{z}}}";
     }
 
