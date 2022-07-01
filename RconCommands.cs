@@ -7,6 +7,9 @@ using ProjectM;
 using ProjectM.Gameplay.Systems;
 using ProjectM.Network;
 using ProjectM.Pathfinding;
+using ProjectM.Scripting;
+using ProjectM.Terrain;
+using ProjectM.Tiles;
 using troublemaker.Attributes;
 using UnhollowerRuntimeLib;
 using Unity.Collections;
@@ -21,6 +24,7 @@ namespace troublemaker;
 [RconHandler]
 public class RconCommands
 {
+    private static Entity empty_entity = new Entity();
 
     [RconCommand("tm_save", Usage = "tm_save", Description = "Saves the current game state")]
     public static string Save(string[] args)
@@ -36,20 +40,13 @@ public class RconCommands
     [RconCommand("tm_message", Usage = "tm_message <steamid> <message>", Description = "Message Command")]
     public string MessageCommand(ulong steamId, string[] message)
     {
-        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
-        var users = userQuery.ToEntityArray(Allocator.Temp);
-
-        foreach (var entity in users)
+        if (!Helpers.TryGetUserCharacter(steamId, out var user, out var userEntity, out var character))
         {
-            var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
-
-            if (user.PlatformId != steamId || !user.IsConnected) continue;
-
-            Messaging.getInstance().SendMessage(user, ServerChatMessageType.Lore, string.Join(" ", message));
-            return $"{{\"message\":\"{string.Join(" ", message)}\"}}";
+            return "{\"result\": \"User not found\"}";
         }
 
-        return "{\"error\":\"User not found\"}";
+        Messaging.getInstance().SendMessage(user, ServerChatMessageType.Lore, string.Join(" ", message));
+        return $"{{\"message\":\"{string.Join(" ", message)}\"}}";
     }
 
     [RconCommand("tm_message_global", Usage = "tm_message_global <message>", Description = "Global Message Command")]
@@ -58,10 +55,13 @@ public class RconCommands
         List<string> msgs = message.ToList();
         ServerChatMessageType t;
         string msg;
-        if(!Enum.TryParse<ServerChatMessageType>(message[0], true, out t)) {
+        if (!Enum.TryParse<ServerChatMessageType>(message[0], true, out t))
+        {
             t = ServerChatMessageType.Lore;
             msg = string.Join(" ", msgs);
-        } else {
+        }
+        else
+        {
             msgs.Shift();
             msg = string.Join(" ", msgs);
         }
@@ -89,254 +89,122 @@ public class RconCommands
     [RconCommand("tm_health", Usage = "tm_healh <steamid> <health%>", Description = "Health Command")]
     public string HealthCommand(ulong steamId, int health)
     {
-        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
-        var users = userQuery.ToEntityArray(Allocator.Temp);
-
-        foreach (var entity in users)
+        if (!Helpers.TryGetUserCharacter(steamId, out var user, out var userEntity, out var character))
         {
-            var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
-            var fromCharacter = VWorld.Server.EntityManager.GetComponentData<FromCharacter>(entity);
-
-            if (user.PlatformId != steamId || !user.IsConnected) continue;
-
-            var character = user.LocalCharacter;
-            var ent = character._Entity;
-
-            var hp = VWorld.Server.EntityManager.GetComponentData<Health>(ent);
-            float restore_hp = ((hp.MaxHealth / 100) * health) - hp.Value;
-
-            var healthEvent = new ChangeHealthDebugEvent()
-            {
-                Amount = (int)restore_hp
-            };
-
-            VWorld.Server.GetExistingSystem<DebugEventsSystem>().ChangeHealthEvent(user.Index, ref healthEvent);
-
-            return $"{{\"player\":\"{user.CharacterName}\",\"health\":{health}}}";
+            return "{\"result\": \"User not found\"}";
         }
 
-        return "{\"error\":\"User not found\"}";
-    }
+        var hp = VWorld.Server.EntityManager.GetComponentData<Health>(character);
+        float restore_hp = ((hp.MaxHealth / 100) * health) - hp.Value;
 
-    // Disable is borked, enable will stack
-    [RconCommand("tm_sunresistance", Usage = "tm_sunresistance <steamid>", Description = "Sun Resistance Command")]
-    public string SunResistanceCommand(ulong steamId)
-    {
-        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
-        var users = userQuery.ToEntityArray(Allocator.Temp);
-
-        foreach (var entity in users)
+        var healthEvent = new ChangeHealthDebugEvent()
         {
-            var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
-            
-            if (user.PlatformId != steamId || !user.IsConnected) continue;
+            Amount = (int)restore_hp
+        };
 
-            if (BuffUtility.HasBuff(VWorld.Server.EntityManager, user.LocalCharacter._Entity, new PrefabGUID(475045773)))
-            {
-                BuffUtility.TryGetBuff(VWorld.Server.EntityManager, user.LocalCharacter._Entity, new PrefabGUID(475045773), out var BuffEntity_);
-                
-                VWorld.Server.EntityManager.AddComponent<DestroyTag>(BuffEntity_);
-                
-                return $"{{\"player\":\"{user.CharacterName}\",\"sunresistance\":false}}";
-            } else {
+        VWorld.Server.GetExistingSystem<DebugEventsSystem>().ChangeHealthEvent(user.Index, ref healthEvent);
 
-                var fromCharacter = new FromCharacter()
-                {
-                    User = entity,
-                    Character = user.LocalCharacter._Entity
-                };
-                
-                var buffEvent = new ApplyBuffDebugEvent()
-                {
-                    BuffPrefabGUID = new PrefabGUID(475045773),
-                };
-                
-                VWorld.Server.GetExistingSystem<DebugEventsSystem>().ApplyBuff(fromCharacter, buffEvent);
-
-                return $"{{\"player\":\"{user.CharacterName}\",\"sunresistance\":true}}";
-            }
-
-        }
-
-        return "{\"error\":\"User not found\"}";
+        return $"{{\"player\":\"{user.CharacterName}\",\"health\":{health}}}";
     }
 
     [RconCommand("tm_blood", Usage = "tm_blood <steamid> <BloodType> <Quality%> <Quantity%>", Description = "Message Command")]
     public string BloodCommand(ulong steamId, string BloodType, float quality, int quantity)
     {
-        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
-        var users = userQuery.ToEntityArray(Allocator.Temp);
-
-        foreach (var entity in users)
+        if (!Helpers.TryGetUserCharacter(steamId, out var user, out var userEntity, out var character))
         {
-            var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
-
-            if (user.PlatformId != steamId || !user.IsConnected) continue;
-
-            /*var character = user.LocalCharacter;
-            var ent = character._Entity;
-
-            ent.WithComponentData((ref Blood blood) =>
-            {
-                blood.Value = quantity;
-                blood.Quality = quality;
-                if (System.Enum.TryParse(BloodType, true, out BloodTypes bloodType))
-                {
-                    blood.BloodType = new PrefabGUID((int)bloodType);
-                }
-            });
-            */
-
-            if (!System.Enum.TryParse(BloodType, true, out BloodTypes bloodType))
-            {
-                return "{\"error\":\"BloodType not found\"}";
-            }
-
-            var bloodEvent = new ChangeBloodDebugEvent() {
-                Amount = quantity,
-                Quality = quality,
-                Source = new PrefabGUID((int)bloodType),
-            };
-
-            VWorld.Server.GetExistingSystem<DebugEventsSystem>().ChangeBloodEvent(user.Index, ref bloodEvent);
-
-            return $"{{\"player\":\"{user.CharacterName}\",\"bloodtype\":\"{BloodType}\",\"quality\":{quality},\"quantity\":{quantity}}}";
+            return "{\"result\": \"User not found\"}";
         }
 
-        return "{\"error\":\"User not found\"}";
+        if (!System.Enum.TryParse(BloodType, true, out BloodTypes bloodType))
+        {
+            return "{\"error\":\"BloodType not found\"}";
+        }
+
+        var bloodEvent = new ChangeBloodDebugEvent()
+        {
+            Amount = quantity,
+            Quality = quality,
+            Source = new PrefabGUID((int)bloodType),
+        };
+
+        VWorld.Server.GetExistingSystem<DebugEventsSystem>().ChangeBloodEvent(user.Index, ref bloodEvent);
+
+        return $"{{\"player\":\"{user.CharacterName}\",\"bloodtype\":\"{BloodType}\",\"quality\":{quality},\"quantity\":{quantity}}}";
     }
 
     [RconCommand("tm_give", Usage = "tm_give <steamid> <item> <quantity>", Description = "Add item(s) to players inventory")]
     public string GiveCommand(ulong steamId, string item, int quantity) // TODO: Check if inventory is full, if so, drop item on ground
     {
-        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
-        var users = userQuery.ToEntityArray(Allocator.Temp);
-
-        foreach (var entity in users)
+        if (!Helpers.TryGetUserCharacter(steamId, out var user, out var userEntity, out var character))
         {
-            var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
-
-            if (user.PlatformId != steamId || !user.IsConnected) continue;
-
-            var character = user.LocalCharacter;
-            var ent = character._Entity;
-
-            PrefabGUID guid = GetGuidFromPrefabName(item);
-            if (guid.GuidHash == 0)
-            {
-                return "{\"error\":\"Item not found\"}";
-            }
-
-            unsafe
-            {
-                // Thanks Nopey & molenzwiebel
-                var gameDataSystem = VWorld.Server.GetExistingSystem<GameDataSystem>();
-                var bytes = stackalloc byte[Marshal.SizeOf<FakeNull>()];
-                var bytePtr = new System.IntPtr(bytes);
-                Marshal.StructureToPtr<FakeNull>(new()
-                {
-                    value = 7,
-                    has_value = true
-                }, bytePtr, false);
-                var boxedBytePtr = System.IntPtr.Subtract(bytePtr, 0x10);
-                var hack = new Il2CppSystem.Nullable<int>(boxedBytePtr);
-                InventoryUtilitiesServer.TryAddItem(VWorld.Server.EntityManager, gameDataSystem.ItemHashLookupMap, ent, guid, quantity, out _, out Entity e, default, hack, true, false, false);
-            }
-
-            return $"{{\"player\":\"{user.CharacterName}\",\"item\":\"{item}\",\"quantity\":\"{quantity}\"}}";
+            return "{\"result\": \"User not found\"}";
         }
 
-        return "{\"error\":\"User not found\"}";
+        if (!Helpers.TryGetPrefabGUID(item, out string Name, out var guid))
+        {
+            return $"{{\"error\":\"Prefab with name {item} could not be found\"}}";
+        }
+
+        unsafe
+        {
+            // Thanks Nopey & molenzwiebel
+            var gameDataSystem = VWorld.Server.GetExistingSystem<GameDataSystem>();
+            var bytes = stackalloc byte[Marshal.SizeOf<FakeNull>()];
+            var bytePtr = new System.IntPtr(bytes);
+            Marshal.StructureToPtr<FakeNull>(new()
+            {
+                value = 7,
+                has_value = true
+            }, bytePtr, false);
+            var boxedBytePtr = System.IntPtr.Subtract(bytePtr, 0x10);
+            var hack = new Il2CppSystem.Nullable<int>(boxedBytePtr);
+            InventoryUtilitiesServer.TryAddItem(VWorld.Server.EntityManager, gameDataSystem.ItemHashLookupMap, character, guid, quantity, out _, out Entity e, default, hack, true, false, false);
+        }
+
+        return $"{{\"player\":\"{user.CharacterName}\",\"item\":\"{item}\",\"quantity\":\"{quantity}\"}}";
     }
 
     [RconCommand("tm_spawn", Usage = "tm_spawn <npc> <x> <z>", Description = "Spawn npc")]
     public string SpawnCommand(string npc, float x, float z)
     {
-        var prefabCollectionSystem = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
-        foreach (var kv in prefabCollectionSystem._PrefabGuidToNameMap)
+        if (!Helpers.TryGetPrefabGUID(npc, out string Name, out var guid))
         {
-            if (kv.Value.ToString().ToLower() != npc.ToLower()) continue;
-            VWorld.Server.GetExistingSystem<UnitSpawnerUpdateSystem>().SpawnUnit(empty_entity, kv.Key, new float3(x, 0, z), 1, 1, 2, -1);
-            return $"{{\"npc\":\"{kv.Value}\",\"x\":{x},\"z\":{z}}}";
+            return $"{{\"error\":\"Prefab with name {npc} could not be found\"}}";
         }
-        return "{\"error\":\"NPC not found\"}";
+
+        VWorld.Server.GetExistingSystem<UnitSpawnerUpdateSystem>().SpawnUnit(empty_entity, guid, new float3(x, 0, z), 1, 1, 2, -1);
+        
+        return $"{{\"npc\":\"{Name}\",\"x\":{x},\"z\":{z}}}";
     }
 
     [RconCommand("tm_teleport", Usage = "tm_teleport <steamid> <x> <z>", Description = "Teleport player")]
     public string TeleportCommand(ulong steamId, float x, float z)
     {
-        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
-        var users = userQuery.ToEntityArray(Allocator.Temp);
-
-        var pathfindingSystem = VWorld.Server.GetExistingSystem<PathfindingSystem>();
-
-        foreach (var entity in users)
+        if (!Helpers.TryGetUserCharacter(steamId, out var user, out var userEntity, out var character))
         {
-            var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
-            // var mapCollision = VWorld.Server.EntityManager.GetComponentData<MapCollision>(entity);
-            // var canFly = VWorld.Server.EntityManager.GetComponentData<CanFly>(entity);
-
-            if (user.PlatformId != steamId || !user.IsConnected) continue;
-
-            var ent = user.LocalCharacter._Entity;
-
-            // var _entity = VWorld.Server.EntityManager.CreateEntity(
-            //     ComponentType.ReadWrite<FromCharacter>(),
-            //     ComponentType.ReadWrite<PlayerTeleportDebugEvent>()
-            // );
-
-            var f2pos = new float2(x, z);
-            var i2pos = new int2((int)x, (int)z);
-
-            // canFly.IsFlying.Value = true;
-            
-
-
-            VWorld.Server.EntityManager.SetComponentData<Translation>(ent, new Translation()
-            {
-                Value = new float3(x, 500, z)
-            });
-
-            // VWorld.Server.EntityManager.SetComponentData<FromCharacter>(_entity, new FromCharacter()
-            // {
-            //     Character = ent,
-            //     User = entity
-            // });
-
-            // VWorld.Server.EntityManager.SetComponentData<PlayerTeleportDebugEvent>(_entity, new()
-            // {
-            //     Position = f2pos,
-            //     Target = PlayerTeleportDebugEvent.TeleportTarget.Self
-            // });
-
-            return $"{{\"player\":\"{user.CharacterName}\",\"x\":{f2pos.x},\"z\":{f2pos.y}}}";
+            return "{\"result\": \"User not found\"}";
         }
 
-        return $"{{\"error\":\"User not found\"}}";
+        if (!Helpers.Teleport(userEntity, character, new float2(x, z)))
+        {
+            return "{\"error\":\"Collision detected\"}";
+        }
+        
+        return $"{{\"player\":\"{user.CharacterName}\",\"x\":{x},\"z\":{z}}}";
     }
 
     [RconCommand("tm_get_player_pos", Usage = "tm_get_player_pos <steamid>", Description = "Get player position")]
     public string GetPlayerPosCommand(ulong steamId)
     {
-        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
-        var users = userQuery.ToEntityArray(Allocator.Temp);
-
-        foreach (var entity in users)
+        if (!Helpers.TryGetUserCharacter(steamId, out var user, out var userEntity, out var character))
         {
-            var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
-
-            if (user.PlatformId != steamId || !user.IsConnected) continue;
-
-            var character = user.LocalCharacter;
-            var ent = character._Entity;
-
-            var component = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(ent);
-            var pos = new float2(component.Position.x, component.Position.z);
-
-            return $"{{\"player\":\"{user.CharacterName}\",\"x\":{pos.x},\"z\":{pos.y}}}";
+            return "{\"result\": \"User not found\"}";
         }
 
-        return $"{{\"error\":\"User not found\"}}";
+        var component = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(character);
+        var pos = new float2(component.Position.x, component.Position.z);
+
+        return $"{{\"player\":\"{user.CharacterName}\",\"x\":{pos.x},\"z\":{pos.y}}}";
     }
 
     [RconCommand("tm_get_player_home", Usage = "tm_get_player_home <steamid>", Description = "Get player home")]
@@ -362,7 +230,11 @@ public class RconCommands
             var respawnOffsetRotated = math.mul(rotQuatMat, respawnOffset);
             var respawnPos = transform.Position + respawnOffsetRotated;
 
-            return this.TeleportCommand(steamId, respawnPos.x, respawnPos.z);
+            var f2pos = new float2(respawnPos.x, respawnPos.z);
+
+            Helpers.Teleport(respawnPoint.RespawnPointOwner.GetEntityOnServer(), respawnPoint.RespawnPointOwner._Entity, f2pos, true);
+
+            return $"{{\"player\":\"{ownerUser.CharacterName}\",\"x\":{respawnPos.x},\"z\":{respawnPos.z}}}";
         }
 
         return $"{{\"error\":\"User not found or has no coffin\"}}";
@@ -371,18 +243,21 @@ public class RconCommands
     [RconCommand("tm_time", Usage = "tm_time [set|add] [minutes] [affect servants]", Description = "Get or Set Time")]
     public string TimeCommand(string type = "get", int time = int.MaxValue, bool affectservats = false)
     {
-        if (time <= 0) {
+        if (time <= 0)
+        {
             return $"{{\"error\":\"Unable to go back in time.\"}}";
         }
 
         if (time != int.MaxValue)
         {
-            if (!Enum.TryParse<SetTimeOfDayEvent.SetTimeType>(type, true, out var setTimeType)) {
+            if (!Enum.TryParse<SetTimeOfDayEvent.SetTimeType>(type, true, out var setTimeType))
+            {
                 setTimeType = SetTimeOfDayEvent.SetTimeType.Add;
             }
 
             var setTimeEntity = VWorld.Server.EntityManager.CreateEntity(ComponentType.ReadOnly<SetTimeOfDayEvent>());
-            VWorld.Server.EntityManager.SetComponentData<SetTimeOfDayEvent>(setTimeEntity, new SetTimeOfDayEvent() {
+            VWorld.Server.EntityManager.SetComponentData<SetTimeOfDayEvent>(setTimeEntity, new SetTimeOfDayEvent()
+            {
                 Day = 0,
                 Hour = 0,
                 Minute = time,
@@ -393,15 +268,18 @@ public class RconCommands
             //Created Entity will be p
 
             // NOTE: Do we want to advance coffinStations and missions etc?
-            if (affectservats) {
+            if (affectservats)
+            {
                 var servantCoffinQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<ServantCoffinstation>());
                 var coffinEntities = servantCoffinQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
 
-                foreach (var coffinEntity in coffinEntities) {
+                foreach (var coffinEntity in coffinEntities)
+                {
                     var coffinStation = VWorld.Server.EntityManager.GetComponentData<ServantCoffinstation>(coffinEntity);
 
                     //Check if the coffin is currently converting an npc
-                    if (coffinStation.State == ServantCoffinState.Converting) {
+                    if (coffinStation.State == ServantCoffinState.Converting)
+                    {
                         //Increase the conversion progress. As it's a struct, this makes a copy and does not modify the original
                         var newProgress = Math.Max(0, coffinStation.ConvertionProgress + (float)time);
                         coffinStation.ConvertionProgress = newProgress;
@@ -415,12 +293,14 @@ public class RconCommands
                 var servantMissonQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<ActiveServantMission>());
                 var missionEntities = servantMissonQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
 
-                foreach (var missionEntity in missionEntities) {
+                foreach (var missionEntity in missionEntities)
+                {
                     //ActiveServantMission is an IBufferElementData so it has to be gotten as a buffer rather than component
                     var missionBuffer = VWorld.Server.EntityManager.GetBuffer<ActiveServantMission>(missionEntity);
 
                     //A buffer can contain multiple things and must therefore be looped through
-                    for (int i = 0; i < missionBuffer.Length; i++) {
+                    for (int i = 0; i < missionBuffer.Length; i++)
+                    {
                         //Get mission at current index
                         var mission = missionBuffer[i];
                         //Reduce mission length, causing it to finish sooner
@@ -455,31 +335,4 @@ public class RconCommands
 
         return $"{{\"day\":{day},\"month\":{month},\"year\":{year},\"hour\":{hour},\"minute\":{minute},\"dayStartHour\":{dayStartHour},\"dayEndHour\":{dayEndHour}}}";
     }
-
-#region HELPERS
-    private static Entity empty_entity = new Entity();
-    private PrefabGUID GetGuidFromPrefabName(string name)
-    {
-        var gameDataSystem = VWorld.Server.GetExistingSystem<GameDataSystem>();
-        var managed = gameDataSystem.ManagedDataRegistry;
-        
-        foreach (var entry in gameDataSystem.ItemHashLookupMap)
-        {
-            try
-            {
-                var item = managed.GetOrDefault<ManagedItemData>(entry.Key);
-                var dbname = item.PrefabName.ToString().ToLower().Trim();
-                // remove all special characters from dbname
-                dbname = Regex.Replace(dbname, "[^a-zA-Z0-9_ ]", "");
-                if (dbname == name.ToLower().Trim())
-                {
-                    return entry.Key;
-                }
-            }
-            catch { }
-        }
-
-        return new PrefabGUID(0);
-    }
-#endregion
 }
