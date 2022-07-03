@@ -164,10 +164,11 @@ public class RconCommands
             {
                 // Adding item failed, drop it on the ground instead
                 InventoryUtilitiesServer.CreateDropItem(Plugin.ServerWorld.EntityManager, character, guid, quantity, empty_entity);
+                return $"{{\"player\":\"{user.CharacterName}\",\"item\":\"{item}\",\"quantity\":\"{quantity}\",\"destination\":\"ground\"}}";
             }
         }
 
-        return $"{{\"player\":\"{user.CharacterName}\",\"item\":\"{item}\",\"quantity\":\"{quantity}\"}}";
+        return $"{{\"player\":\"{user.CharacterName}\",\"item\":\"{item}\",\"quantity\":\"{quantity}\",\"destination\":\"inventory\"}}";
     }
 
     [RconCommand("tm_spawn", Usage = "tm_spawn <npc> <x> <z>", Description = "Spawn npc")]
