@@ -179,7 +179,16 @@ public class RconCommands
             return $"{{\"error\":\"Prefab with name {npc} could not be found\"}}";
         }
 
-        Plugin.ServerWorld.GetExistingSystem<UnitSpawnerUpdateSystem>().SpawnUnit(empty_entity, guid, new float3(x, 0, z), 1, 1, 2, -1);
+        var position = new float2(x, z);
+
+        if (!Helpers.IsWalkable(position))
+        {
+            position = Helpers.OffsetToWalkable(position);
+        }
+
+        var f3pos = new float3(position.x, 0, position.y);
+
+        Plugin.ServerWorld.GetExistingSystem<UnitSpawnerUpdateSystem>().SpawnUnit(empty_entity, guid, f3pos, 1, 1, 2, -1);
 
         return $"{{\"npc\":\"{Name}\",\"x\":{x},\"z\":{z}}}";
     }
