@@ -109,7 +109,7 @@ public class RconCommands
         return $"{{\"player\":\"{user.CharacterName}\",\"health\":{health}}}";
     }
 
-    [RconCommand("tm_blood", Usage = "tm_blood <steamid> <BloodType> <Quality%> <BloodAddAmount>", Description = "Message Command")]
+    [RconCommand("tm_blood", Usage = "tm_blood <steamid> <BloodType> <Quality%> <BloodAddAmount>", Description = "Change players blood type and quality.")]
     public string BloodCommand(ulong steamId, string BloodType, float quality, int quantity)
     {
         if (!Helpers.TryGetUserCharacter(steamId, out var user, out var userEntity, out var character))
@@ -223,7 +223,7 @@ public class RconCommands
         return $"{{\"player\":\"{user.CharacterName}\",\"x\":{pos.x},\"z\":{pos.y}}}";
     }
 
-    [RconCommand("tm_get_player_home", Usage = "tm_get_player_home <steamid>", Description = "Get player home")]
+    [RconCommand("tm_get_player_home", Usage = "tm_get_player_home <steamid>", Description = "Send player home")]
     public string GetPlayerHomeCommand(ulong steamId)
     {
         var coffinQuery = Plugin.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<RespawnPoint>(),
