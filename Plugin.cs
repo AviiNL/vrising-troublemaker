@@ -1,29 +1,42 @@
 ﻿using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using BepInEx;
 using BepInEx.IL2CPP;
 using BepInEx.Logging;
 using HarmonyLib;
-using ProjectM;
 using troublemaker.Attributes;
 using UnhollowerRuntimeLib;
-using Unity.Transforms;
+using Unity.Entities;
 using UnityEngine;
-using Wetstone.API;
-using Wetstone.Hooks;
 
 namespace troublemaker;
 
 [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
-[BepInDependency("xyz.molenzwiebel.wetstone")]
-[Wetstone.API.Reloadable]
 public class Plugin : BasePlugin
 {
     public static ManualLogSource? Logger;
-
+    
+    public static World ServerWorld {
+        get {
+            return _serverWorld!;
+        }
+    }
+    public static bool IsServer => Application.productName == "VRisingServer";
+    
     private Harmony _myHook;
     private Component? _myInjected;
+    private static World? _serverWorld;
+    
+    public static void Init() {
+        if (IsServer) {
+            _serverWorld = GetWorld("Server");
+            if (_serverWorld == null) {
+                Plugin.Logger?.LogError("Failed to initialize Troublemaker. World not found.");
+                return;
+            }
+            Plugin.Logger?.LogInfo("Found server world.");
+        }
+    }
 
     public Plugin()
     {
@@ -33,7 +46,7 @@ public class Plugin : BasePlugin
 
     public override void Load()
     {
-        if (!VWorld.IsServer) return;
+        if (!IsServer) return;
         Logger = this.Log;
 
         var types = Assembly.GetExecutingAssembly().GetTypes()
@@ -47,156 +60,14 @@ public class Plugin : BasePlugin
         ClassInjector.RegisterTypeInIl2Cpp<Troublemaker>();
         _myInjected = AddComponent<Troublemaker>();
 
-        Wetstone.Hooks.Chat.OnChatMessage += HandleChatMessage;
-
         _myHook.PatchAll();
 
         Log.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
     }
 
-    private static void HandleChatMessage(VChatEvent ev)
-    {
-        if (!ev.Message.StartsWith("!")) return;
-        if (ev.Cancelled) return; // ignore messages already processed by some other plugin
-
-        ev.Cancel(); // prevent the command from showing up, since we're handling it
-
-        if (ev.Message.StartsWith("!hp"))
-        {
-            var hp = float.Parse(ev.Message.Substring(4));
-
-            ev.SenderCharacterEntity.WithComponentData((ref Health health) =>
-            {
-                health.Value = hp;
-            });
-
-            ev.User.SendSystemMessage("Set current HP to <color=#ffff00ff>" + hp + "</color>.");
-            return;
-        }
-
-        if (ev.Message.StartsWith("!clean"))
-        {
-            WorldUtility.CleanUpPhysicsGarbage();
-            return;
-        }
-
-        if (ev.Message.StartsWith("!blood"))
-        {
-            var bl = float.Parse(ev.Message.Substring(7));
-
-            ev.SenderCharacterEntity.WithComponentData((ref Blood blood) =>
-            {
-                blood.Value = bl;
-            });
-
-            ev.User.SendSystemMessage("Set current Blood to <color=#ffff00ff>" + bl + "</color>.");
-            return;
-        }
-
-        if (ev.Message.StartsWith("!test"))
-        {
-            var component = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(ev.SenderCharacterEntity);
-
-            Helpers.IsWalkable(new Unity.Mathematics.float2(component.Position.x, component.Position.z));
-
-            return;
-        }
-
-        if (ev.Message.StartsWith("!export items"))
-        {
-            var gameDataSystem = VWorld.Server.GetExistingSystem<GameDataSystem>();
-            var managed = gameDataSystem.ManagedDataRegistry;
-
-            // Open file for writing
-            var file = new System.IO.StreamWriter("items.md", false);
-            file.WriteLine($"| Key | Name |");
-            file.WriteLine($"|---|---|");
-
-            foreach (var entry in gameDataSystem.ItemHashLookupMap)
-            {
-                try
-                {
-
-                    var item = managed.GetOrDefault<ManagedItemData>(entry.Key);
-
-                    var dbname = item.PrefabName.ToString().ToLower().Trim();
-                    // remove all special characters from dbname
-                    dbname = Regex.Replace(dbname, "[^a-zA-Z0-9_ ]", "");
-                    file.WriteLine($"| {dbname} | {item.Name} |");
-
-                    // if (item.Name.ToString().ToLower() == name.ToLower())
-                    // {
-                    //     return entry.Key;
-                    // }
-
-                }
-                catch { }
-            }
-            file.Flush();
-
-            file.Close();
-
-            ev.User.SendSystemMessage("<color=#00ff00ff>items.md has been written</color>");
-            return;
-        }
-
-        if (ev.Message.StartsWith("!export spawnable"))
-        {
-            var prefabCollectionSystem = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
-
-            // Open file for writing
-            var file = new System.IO.StreamWriter("spawnable.md", false);
-            foreach (var kv in prefabCollectionSystem._PrefabGuidToNameMap)
-            {
-                try
-                {
-                    // dbname = Regex.Replace(dbname, "[^a-zA-Z0-9_ ]", "");
-                    if (kv.Value.ToString().StartsWith("CHAR_"))
-                    {
-                        file.WriteLine($"{kv.Value}");
-                    }
-                }
-                catch { }
-            }
-            file.Flush();
-
-            file.Close();
-
-            ev.User.SendSystemMessage("<color=#00ff00ff>spawnable.md has been written</color>");
-            return;
-        }
-
-        if (ev.Message.StartsWith("!export user"))
-        {
-            var userComponents = VWorld.Server.EntityManager.GetComponentTypes(ev.SenderUserEntity);
-
-            // Open file for writing
-            var file = new System.IO.StreamWriter("user_components.md", false);
-            foreach (var kv in userComponents)
-            {
-                try
-                {
-                    // dbname = Regex.Replace(dbname, "[^a-zA-Z0-9_ ]", "");
-                    file.WriteLine($"{kv.GetManagedType().FullName}");
-                }
-                catch { }
-            }
-            file.Flush();
-
-            file.Close();
-
-            ev.User.SendSystemMessage("<color=#00ff00ff>user_components.md has been written</color>");
-            return;
-        }
-
-        ev.User.SendSystemMessage("<color=#ff0000ff>Unknown command!</color>");
-    }
-
     public override bool Unload()
     {
-        if (!VWorld.IsServer) return true;
-
-        Wetstone.Hooks.Chat.OnChatMessage -= HandleChatMessage;
+        if (!IsServer) return true;
 
         this._myHook.UnpatchSelf();
         if (_myInjected != null)
@@ -205,8 +76,16 @@ public class Plugin : BasePlugin
         return true;
     }
 
-    private void Register()
+    private static World? GetWorld(string name)
     {
+        foreach (var world in World.s_AllWorlds)
+        {
+            if (world.Name == name)
+            {
+                return world;
+            }
+        }
 
+        return null;
     }
 }

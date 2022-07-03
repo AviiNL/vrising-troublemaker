@@ -1,7 +1,6 @@
 using UnhollowerRuntimeLib;
 using Unity.Collections;
 using Unity.Entities;
-using Wetstone.API;
 using ProjectM.Network;
 using Unity.Mathematics;
 using ProjectM;
@@ -21,10 +20,10 @@ internal static class Helpers
         {
             if (_mapDataValue == null)
             {
-                var terrainManager = VWorld.Server.GetExistingSystem<TerrainManager>();
+                var terrainManager = Plugin.ServerWorld.GetExistingSystem<TerrainManager>();
                 var terrainChunks = terrainManager.GetChunksAndComplete();
-                var getTileCollision = VWorld.Server.EntityManager.GetBufferFromEntity<ChunkTileCollision>();
-                var getGameplayHeights = VWorld.Server.EntityManager.GetBufferFromEntity<ChunkGameplayHeights>();
+                var getTileCollision = Plugin.ServerWorld.EntityManager.GetBufferFromEntity<ChunkTileCollision>();
+                var getGameplayHeights = Plugin.ServerWorld.EntityManager.GetBufferFromEntity<ChunkGameplayHeights>();
                 _mapDataValue = TileCollisionHelper.CreateMapData(TileCollisionHelper.CreateLinePolygon(), terrainChunks, getTileCollision, getGameplayHeights);
             }
             return _mapDataValue;
@@ -33,11 +32,11 @@ internal static class Helpers
 
     internal static bool TryGetUserCharacter(ulong SteamID, out User User, out Entity UserEntity, out Entity Character)
     {
-        var userQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
+        var userQuery = Plugin.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly(Il2CppType.Of<User>()));
         var users = userQuery.ToEntityArray(Allocator.Temp);
         foreach (var entity in users)
         {
-            var user = VWorld.Server.EntityManager.GetComponentData<User>(entity);
+            var user = Plugin.ServerWorld.EntityManager.GetComponentData<User>(entity);
 
             if (user.PlatformId != SteamID || !user.IsConnected) continue;
 
@@ -56,7 +55,7 @@ internal static class Helpers
 
     internal static bool TryGetPrefabGUID(string PrefabName, out string Name, out PrefabGUID PrefabGUID)
     {
-        var prefabCollectionSystem = VWorld.Server.GetExistingSystem<PrefabCollectionSystem>();
+        var prefabCollectionSystem = Plugin.ServerWorld.GetExistingSystem<PrefabCollectionSystem>();
         foreach (var kv in prefabCollectionSystem._PrefabGuidToNameMap)
         {
             if (kv.Value.ToString().ToLower() != PrefabName.ToLower()) continue;
@@ -132,18 +131,18 @@ internal static class Helpers
             }
         }
 
-        var _entity = VWorld.Server.EntityManager.CreateEntity(
+        var _entity = Plugin.ServerWorld.EntityManager.CreateEntity(
             ComponentType.ReadWrite<FromCharacter>(),
             ComponentType.ReadWrite<PlayerTeleportDebugEvent>()
         );
 
-        VWorld.Server.EntityManager.SetComponentData<FromCharacter>(_entity, new FromCharacter()
+        Plugin.ServerWorld.EntityManager.SetComponentData<FromCharacter>(_entity, new FromCharacter()
         {
             Character = character,
             User = userEntity
         });
 
-        VWorld.Server.EntityManager.SetComponentData<PlayerTeleportDebugEvent>(_entity, new()
+        Plugin.ServerWorld.EntityManager.SetComponentData<PlayerTeleportDebugEvent>(_entity, new()
         {
             Position = position,
             Target = PlayerTeleportDebugEvent.TeleportTarget.Self

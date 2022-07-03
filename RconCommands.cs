@@ -12,7 +12,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
-using Wetstone.API;
 
 namespace troublemaker;
 
@@ -26,7 +25,7 @@ public class RconCommands
     {
         // current time to string
         var time = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
-        VWorld.Server.GetExistingSystem<TriggerPersistenceSaveSystem>().TriggerSave(SaveReason.ManualSave, $"TM_SAVE_{time}");
+        Plugin.ServerWorld.GetExistingSystem<TriggerPersistenceSaveSystem>().TriggerSave(SaveReason.ManualSave, $"TM_SAVE_{time}");
         Plugin.Logger?.LogInfo("Saved game");
 
         return "{\"result\": \"Saved Game\"}";
@@ -74,11 +73,11 @@ public class RconCommands
             ComponentType.ReadOnly(Il2CppType.Of<User>()),
         };
 
-        var system = VWorld.Server.EntityManager.CreateEntityQuery(query);
+        var system = Plugin.ServerWorld.EntityManager.CreateEntityQuery(query);
 
         foreach (var entity in system.ToEntityArray(Allocator.Temp))
         {
-            var u = VWorld.Server.EntityManager.GetComponentData<User>(entity);
+            var u = Plugin.ServerWorld.EntityManager.GetComponentData<User>(entity);
 
             if (!u.IsConnected) continue;
 
@@ -97,7 +96,7 @@ public class RconCommands
             return "{\"result\": \"User not found\"}";
         }
 
-        var hp = VWorld.Server.EntityManager.GetComponentData<Health>(character);
+        var hp = Plugin.ServerWorld.EntityManager.GetComponentData<Health>(character);
         float restore_hp = ((hp.MaxHealth / 100) * health) - hp.Value;
 
         var healthEvent = new ChangeHealthDebugEvent()
@@ -105,12 +104,12 @@ public class RconCommands
             Amount = (int)restore_hp
         };
 
-        VWorld.Server.GetExistingSystem<DebugEventsSystem>().ChangeHealthEvent(user.Index, ref healthEvent);
+        Plugin.ServerWorld.GetExistingSystem<DebugEventsSystem>().ChangeHealthEvent(user.Index, ref healthEvent);
 
         return $"{{\"player\":\"{user.CharacterName}\",\"health\":{health}}}";
     }
 
-    [RconCommand("tm_blood", Usage = "tm_blood <steamid> <BloodType> <Quality%> <Quantity%>", Description = "Message Command")]
+    [RconCommand("tm_blood", Usage = "tm_blood <steamid> <BloodType> <Quality%> <BloodAddAmount>", Description = "Message Command")]
     public string BloodCommand(ulong steamId, string BloodType, float quality, int quantity)
     {
         if (!Helpers.TryGetUserCharacter(steamId, out var user, out var userEntity, out var character))
@@ -130,7 +129,7 @@ public class RconCommands
             Source = new PrefabGUID((int)bloodType),
         };
 
-        VWorld.Server.GetExistingSystem<DebugEventsSystem>().ChangeBloodEvent(user.Index, ref bloodEvent);
+        Plugin.ServerWorld.GetExistingSystem<DebugEventsSystem>().ChangeBloodEvent(user.Index, ref bloodEvent);
 
         return $"{{\"player\":\"{user.CharacterName}\",\"bloodtype\":\"{BloodType}\",\"quality\":{quality},\"quantity\":{quantity}}}";
     }
@@ -151,20 +150,20 @@ public class RconCommands
         unsafe
         {
             // Thanks Nopey & molenzwiebel
-            var gameDataSystem = VWorld.Server.GetExistingSystem<GameDataSystem>();
+            var gameDataSystem = Plugin.ServerWorld.GetExistingSystem<GameDataSystem>();
             var bytes = stackalloc byte[Marshal.SizeOf<FakeNull>()];
             var bytePtr = new System.IntPtr(bytes);
             Marshal.StructureToPtr<FakeNull>(new()
             {
-                value = 7,
+                value = 0,
                 has_value = true
             }, bytePtr, false);
             var boxedBytePtr = System.IntPtr.Subtract(bytePtr, 0x10);
             var hack = new Il2CppSystem.Nullable<int>(boxedBytePtr);
-            if (!InventoryUtilitiesServer.TryAddItem(VWorld.Server.EntityManager, gameDataSystem.ItemHashLookupMap, character, guid, quantity, out _, out Entity e, default, hack, true, false, false))
+            if (!InventoryUtilitiesServer.TryAddItem(Plugin.ServerWorld.EntityManager, gameDataSystem.ItemHashLookupMap, character, guid, quantity, out _, out Entity e, default, hack, true, false, false))
             {
                 // Adding item failed, drop it on the ground instead
-                InventoryUtilitiesServer.CreateDropItem(VWorld.Server.EntityManager, character, guid, quantity, empty_entity);
+                InventoryUtilitiesServer.CreateDropItem(Plugin.ServerWorld.EntityManager, character, guid, quantity, empty_entity);
             }
         }
 
@@ -179,7 +178,7 @@ public class RconCommands
             return $"{{\"error\":\"Prefab with name {npc} could not be found\"}}";
         }
 
-        VWorld.Server.GetExistingSystem<UnitSpawnerUpdateSystem>().SpawnUnit(empty_entity, guid, new float3(x, 0, z), 1, 1, 2, -1);
+        Plugin.ServerWorld.GetExistingSystem<UnitSpawnerUpdateSystem>().SpawnUnit(empty_entity, guid, new float3(x, 0, z), 1, 1, 2, -1);
 
         return $"{{\"npc\":\"{Name}\",\"x\":{x},\"z\":{z}}}";
     }
@@ -208,7 +207,7 @@ public class RconCommands
             return "{\"result\": \"User not found\"}";
         }
 
-        var component = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(character);
+        var component = Plugin.ServerWorld.EntityManager.GetComponentData<LocalToWorld>(character);
         var pos = new float2(component.Position.x, component.Position.z);
 
         return $"{{\"player\":\"{user.CharacterName}\",\"x\":{pos.x},\"z\":{pos.y}}}";
@@ -217,17 +216,17 @@ public class RconCommands
     [RconCommand("tm_get_player_home", Usage = "tm_get_player_home <steamid>", Description = "Get player home")]
     public string GetPlayerHomeCommand(ulong steamId)
     {
-        var coffinQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<RespawnPoint>(),
+        var coffinQuery = Plugin.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<RespawnPoint>(),
                         ComponentType.ReadOnly<UserOwner>());
         var coffins = coffinQuery.ToEntityArray(Allocator.Temp);
 
         foreach (var coffin in coffins)
         {
-            var respawnPoint = VWorld.Server.EntityManager.GetComponentData<RespawnPoint>(coffin);
-            var ownerUser = VWorld.Server.EntityManager.GetComponentData<User>(respawnPoint.RespawnPointOwner._Entity);
+            var respawnPoint = Plugin.ServerWorld.EntityManager.GetComponentData<RespawnPoint>(coffin);
+            var ownerUser = Plugin.ServerWorld.EntityManager.GetComponentData<User>(respawnPoint.RespawnPointOwner._Entity);
             if (ownerUser.PlatformId != steamId || !ownerUser.IsConnected) continue;
 
-            var transform = VWorld.Server.EntityManager.GetComponentData<LocalToWorld>(coffin);
+            var transform = Plugin.ServerWorld.EntityManager.GetComponentData<LocalToWorld>(coffin);
             var respawnOffset = respawnPoint.SpawnExitOffset;
 
             // Apply transforms rotation to respawnOffset
@@ -262,8 +261,8 @@ public class RconCommands
                 setTimeType = SetTimeOfDayEvent.SetTimeType.Add;
             }
 
-            var setTimeEntity = VWorld.Server.EntityManager.CreateEntity(ComponentType.ReadOnly<SetTimeOfDayEvent>());
-            VWorld.Server.EntityManager.SetComponentData<SetTimeOfDayEvent>(setTimeEntity, new SetTimeOfDayEvent()
+            var setTimeEntity = Plugin.ServerWorld.EntityManager.CreateEntity(ComponentType.ReadOnly<SetTimeOfDayEvent>());
+            Plugin.ServerWorld.EntityManager.SetComponentData<SetTimeOfDayEvent>(setTimeEntity, new SetTimeOfDayEvent()
             {
                 Day = 0,
                 Hour = 0,
@@ -277,12 +276,12 @@ public class RconCommands
             // NOTE: Do we want to advance coffinStations and missions etc?
             if (affectservats)
             {
-                var servantCoffinQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<ServantCoffinstation>());
+                var servantCoffinQuery = Plugin.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<ServantCoffinstation>());
                 var coffinEntities = servantCoffinQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
 
                 foreach (var coffinEntity in coffinEntities)
                 {
-                    var coffinStation = VWorld.Server.EntityManager.GetComponentData<ServantCoffinstation>(coffinEntity);
+                    var coffinStation = Plugin.ServerWorld.EntityManager.GetComponentData<ServantCoffinstation>(coffinEntity);
 
                     //Check if the coffin is currently converting an npc
                     if (coffinStation.State == ServantCoffinState.Converting)
@@ -291,19 +290,19 @@ public class RconCommands
                         var newProgress = Math.Max(0, coffinStation.ConvertionProgress + (float)time);
                         coffinStation.ConvertionProgress = newProgress;
                         //Set the modified component back on the enity so the value change is used
-                        VWorld.Server.EntityManager.SetComponentData<ServantCoffinstation>(coffinEntity, coffinStation);
+                        Plugin.ServerWorld.EntityManager.SetComponentData<ServantCoffinstation>(coffinEntity, coffinStation);
                     }
                 }
 
                 // //Progress Servant mission timers
                 // //Query all Entity with an associated ActiveServantMission. This component contains data for active servant missions
-                var servantMissonQuery = VWorld.Server.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<ActiveServantMission>());
+                var servantMissonQuery = Plugin.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<ActiveServantMission>());
                 var missionEntities = servantMissonQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
 
                 foreach (var missionEntity in missionEntities)
                 {
                     //ActiveServantMission is an IBufferElementData so it has to be gotten as a buffer rather than component
-                    var missionBuffer = VWorld.Server.EntityManager.GetBuffer<ActiveServantMission>(missionEntity);
+                    var missionBuffer = Plugin.ServerWorld.EntityManager.GetBuffer<ActiveServantMission>(missionEntity);
 
                     //A buffer can contain multiple things and must therefore be looped through
                     for (int i = 0; i < missionBuffer.Length; i++)
@@ -320,22 +319,24 @@ public class RconCommands
             }
         }
 
-        var system = VWorld.Server.GetExistingSystem<HandleGameplayEventsSystem>();
+        var system = Plugin.ServerWorld.GetExistingSystem<HandleGameplayEventsSystem>();
 
         var e = system._DayNightCycle.GetSingletonEntity();
-        var dnc = VWorld.Server.EntityManager.GetComponentData<DayNightCycle>(e);
+        var dnc = Plugin.ServerWorld.EntityManager.GetComponentData<DayNightCycle>(e);
         var now = dnc.GameDateTimeNow;
 
-        var year = string.Format("{0:0000}", now.Year);
-        var month = string.Format("{0:00}", now.Month);
-        var day = string.Format("{0:00}", now.Day);
-        var hour = string.Format("{0:00}", now.Hour);
-        var minute = string.Format("{0:00}", now.Minute);
+        // this format is not json parsable,
+        // var year = string.Format("{0:0000}", now.Year);
+        // var month = string.Format("{0:00}", now.Month);
+        // var day = string.Format("{0:00}", now.Day);
+        // var hour = string.Format("{0:00}", now.Hour);
+        // var minute = string.Format("{0:00}", now.Minute);
 
-        var isDay = dnc.TimeOfDay == dnc.TimeOfDay ? "day" : "night";
-
-        var rawr = $"{hour}:{minute} - {isDay}";
-
+        var year = now.Year;
+        var month = now.Month;
+        var day = now.Day;
+        var hour = now.Hour;
+        var minute = now.Minute;
 
         var dayStartHour = dnc.DayTimeStartInSeconds / (dnc.DayDurationInSeconds / 24);
         var dayEndHour = dayStartHour + (dnc.DayTimeDurationInSeconds / (dnc.DayDurationInSeconds / 24));

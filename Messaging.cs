@@ -1,7 +1,6 @@
 using System;
 using ProjectM.Network;
 using Unity.Entities;
-using Wetstone.API;
 
 namespace troublemaker;
 
@@ -14,7 +13,7 @@ public class Messaging
 
     public Messaging()
     {
-        this._em = VWorld.Server.EntityManager;
+        this._em = Plugin.ServerWorld.EntityManager;
     }
 
     public static Messaging getInstance()

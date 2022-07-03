@@ -2,7 +2,6 @@ using HarmonyLib;
 using ProjectM;
 using ProjectM.Network;
 using Stunlock.Network;
-using Wetstone.API;
 
 namespace troublemaker;
 
@@ -11,7 +10,7 @@ public class ServerBootstrapSystem_Patch
 {
     public static void Postfix(ServerBootstrapSystem __instance, NetConnectionId netConnectionId)
     {
-        var em = VWorld.Server.EntityManager;
+        var em = Plugin.ServerWorld.EntityManager;
         var userIndex = __instance._NetEndPointToApprovedUserIndex[netConnectionId];
         var serverClient = __instance._ApprovedUsersLookup[userIndex];
         var userEntity = serverClient.UserEntity;
